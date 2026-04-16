@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  name          String
+  role          String   @default("student")
+  appointments  Appointment[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Room {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  location      String?
+  capacity      Int      @default(1)
+  equipment     String[]
+  status        String   @default("AVAILABLE")
+  appointments  Appointment[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([name])
+}
+
+model Appointment {
+  id            String   @id @default(uuid())
+  title         String
+  description   String?
+  room          Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  roomId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  startTime     DateTime
+  endTime       DateTime
+  participants  String[]
+  status        String   @default("CONFIRMED")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([roomId, startTime, endTime])
+  @@index([roomId])
+  @@index([userId])
+  @@index([startTime])
+  @@index([status])
+}
