@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply font-sans text-brand-dark bg-brand-surface antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 bg-brand-dark text-white px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-brand-navy transition-colors rounded;
+  }
+
+  .btn-outline {
+    @apply inline-flex items-center justify-center gap-2 border border-brand-dark text-brand-dark px-5 py-2.5 text-sm font-medium tracking-wide hover:bg-brand-dark hover:text-white transition-colors rounded;
+  }
+
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 bg-brand-primary text-brand-dark px-5 py-2.5 text-sm font-semibold tracking-wide hover:bg-brand-primary-light transition-colors rounded;
+  }
+
+  .input-field {
+    @apply w-full border border-brand-border bg-white px-4 py-2.5 text-sm text-brand-dark placeholder-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent rounded transition;
+  }
+
+  .card {
+    @apply bg-white border border-brand-border rounded-lg overflow-hidden;
+  }
+
+  .badge-available {
+    @apply inline-block bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium px-2.5 py-0.5 rounded-full;
+  }
+
+  .badge-inuse {
+    @apply inline-block bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium px-2.5 py-0.5 rounded-full;
+  }
+
+  .badge-confirmed {
+    @apply inline-block bg-blue-50 text-blue-700 border border-blue-200 text-xs font-medium px-2.5 py-0.5 rounded-full;
+  }
+
+  .badge-pending {
+    @apply inline-block bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium px-2.5 py-0.5 rounded-full;
+  }
+
+  .badge-cancelled {
+    @apply inline-block bg-red-50 text-red-700 border border-red-200 text-xs font-medium px-2.5 py-0.5 rounded-full;
+  }
+
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-brand-muted hover:text-brand-dark hover:bg-brand-surface rounded transition-colors;
+  }
+
+  .sidebar-link.active {
+    @apply text-brand-dark bg-brand-surface border-l-2 border-brand-primary;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    background-color: #121212;
+  }
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100svh;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+}
