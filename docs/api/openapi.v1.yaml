@@ -2,7 +2,13 @@ openapi: 3.0.3
 info:
   title: AWT Room Booking API
   version: 1.0.0
-  description: REST contract for modular monolith domains.
+  description: |
+    REST contract for modular monolith domains.
+
+    Versioning strategy:
+    - Base path versioning with /api/v1
+    - Additive, backward-compatible changes inside v1
+    - Breaking changes require a new major version path (for example /api/v2)
 servers:
   - url: /api/v1
 tags:
@@ -55,6 +61,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/PagedUsers'
 
+  /users/{userId}:
+    get:
+      tags: [Users]
+      summary: Get user by id (admin)
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Users]
+      summary: Update user by id (admin)
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
   /rooms:
     get:
       tags: [Rooms]
@@ -81,6 +123,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/PagedRooms'
+    post:
+      tags: [Rooms]
+      summary: Create room (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomRequest'
+      responses:
+        '201':
+          description: Room created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
 
   /rooms/{roomId}:
     get:
@@ -91,6 +149,26 @@ paths:
       responses:
         '200':
           description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Rooms]
+      summary: Update room (admin)
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoomRequest'
+      responses:
+        '200':
+          description: Updated room
           content:
             application/json:
               schema:
@@ -174,6 +252,20 @@ paths:
       responses:
         '200':
           description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
+  /bookings/{bookingId}/confirm:
+    post:
+      tags: [Bookings]
+      summary: Confirm booking (staff/admin)
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      responses:
+        '200':
+          description: Booking confirmed
           content:
             application/json:
               schema:
@@ -290,6 +382,11 @@ components:
       name: bookingId
       required: true
       schema: { type: string }
+    UserId:
+      in: path
+      name: userId
+      required: true
+      schema: { type: string }
 
   responses:
     NotFound:
@@ -325,6 +422,32 @@ components:
         building: { type: string }
         floor: { type: string }
         seats: { type: integer, minimum: 1 }
+        type: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
+        equipment:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [active, maintenance, archived] }
+
+    CreateRoomRequest:
+      type: object
+      required: [name, building, floor, seats, type]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        building: { type: string, minLength: 1, maxLength: 60 }
+        floor: { type: string, minLength: 1, maxLength: 30 }
+        seats: { type: integer, minimum: 1, maximum: 1000 }
+        type: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
+        equipment:
+          type: array
+          items: { type: string }
+
+    UpdateRoomRequest:
+      type: object
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        building: { type: string, minLength: 1, maxLength: 60 }
+        floor: { type: string, minLength: 1, maxLength: 30 }
+        seats: { type: integer, minimum: 1, maximum: 1000 }
         type: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
         equipment:
           type: array

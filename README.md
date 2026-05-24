@@ -27,6 +27,7 @@ Architecture document:
 
 REST contract:
 - docs/api/openapi.v1.yaml
+- docs/api/resource-model-v1.md
 
 ## REST Client Scaffolding (Frontend)
 Typed API contracts and services are created under:
