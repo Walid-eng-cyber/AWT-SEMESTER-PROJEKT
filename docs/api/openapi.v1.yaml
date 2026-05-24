@@ -12,16 +12,76 @@ info:
 servers:
   - url: /api/v1
 tags:
+  - name: Auth
   - name: Users
   - name: Rooms
   - name: Bookings
   - name: Availability
   - name: Notifications
+security:
+  - BearerAuth: []
 paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Authenticate user with university credentials
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Access and refresh token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh expired access token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthTokens'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke active refresh token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '204':
+          description: Token revoked
+
   /users/me:
     get:
       tags: [Users]
       summary: Get authenticated user profile
+      x-required-roles: [student, staff, admin]
       responses:
         '200':
           description: User profile
@@ -32,6 +92,7 @@ paths:
     patch:
       tags: [Users]
       summary: Update authenticated user profile
+      x-required-roles: [student, staff, admin]
       requestBody:
         required: true
         content:
@@ -50,6 +111,7 @@ paths:
     get:
       tags: [Users]
       summary: List users (admin)
+      x-required-roles: [admin]
       parameters:
         - $ref: '#/components/parameters/Page'
         - $ref: '#/components/parameters/PageSize'
@@ -65,6 +127,7 @@ paths:
     get:
       tags: [Users]
       summary: Get user by id (admin)
+      x-required-roles: [admin]
       parameters:
         - $ref: '#/components/parameters/UserId'
       responses:
@@ -79,6 +142,7 @@ paths:
     patch:
       tags: [Users]
       summary: Update user by id (admin)
+      x-required-roles: [admin]
       parameters:
         - $ref: '#/components/parameters/UserId'
       requestBody:
@@ -101,6 +165,7 @@ paths:
     get:
       tags: [Rooms]
       summary: List rooms with filters
+      x-required-roles: [student, staff, admin]
       parameters:
         - in: query
           name: building
@@ -126,6 +191,7 @@ paths:
     post:
       tags: [Rooms]
       summary: Create room (admin)
+      x-required-roles: [admin]
       requestBody:
         required: true
         content:
@@ -144,6 +210,7 @@ paths:
     get:
       tags: [Rooms]
       summary: Get room details
+      x-required-roles: [student, staff, admin]
       parameters:
         - $ref: '#/components/parameters/RoomId'
       responses:
@@ -158,6 +225,7 @@ paths:
     patch:
       tags: [Rooms]
       summary: Update room (admin)
+      x-required-roles: [admin]
       parameters:
         - $ref: '#/components/parameters/RoomId'
       requestBody:
@@ -180,6 +248,7 @@ paths:
     get:
       tags: [Bookings]
       summary: List bookings for current user
+      x-required-roles: [student, staff, admin]
       parameters:
         - in: query
           name: status
@@ -202,6 +271,7 @@ paths:
     post:
       tags: [Bookings]
       summary: Create booking
+      x-required-roles: [student, staff, admin]
       parameters:
         - in: header
           name: Idempotency-Key
@@ -231,6 +301,7 @@ paths:
     get:
       tags: [Bookings]
       summary: Get booking by id
+      x-required-roles: [student, staff, admin]
       parameters:
         - $ref: '#/components/parameters/BookingId'
       responses:
@@ -247,6 +318,7 @@ paths:
     post:
       tags: [Bookings]
       summary: Cancel booking
+      x-required-roles: [student, staff, admin]
       parameters:
         - $ref: '#/components/parameters/BookingId'
       responses:
@@ -261,6 +333,7 @@ paths:
     post:
       tags: [Bookings]
       summary: Confirm booking (staff/admin)
+      x-required-roles: [staff, admin]
       parameters:
         - $ref: '#/components/parameters/BookingId'
       responses:
@@ -275,6 +348,7 @@ paths:
     get:
       tags: [Availability]
       summary: Get availability for one room in a time window
+      x-required-roles: [student, staff, admin]
       parameters:
         - $ref: '#/components/parameters/RoomIdQuery'
         - in: query
@@ -297,6 +371,7 @@ paths:
     get:
       tags: [Availability]
       summary: Find available rooms in a time window
+      x-required-roles: [student, staff, admin]
       parameters:
         - in: query
           name: from
@@ -326,6 +401,7 @@ paths:
     get:
       tags: [Notifications]
       summary: List notifications for current user
+      x-required-roles: [student, staff, admin]
       parameters:
         - in: query
           name: unreadOnly
@@ -344,6 +420,7 @@ paths:
     post:
       tags: [Notifications]
       summary: Mark notification as read
+      x-required-roles: [student, staff, admin]
       parameters:
         - in: path
           name: notificationId
@@ -358,6 +435,12 @@ paths:
                 $ref: '#/components/schemas/Notification'
 
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
   parameters:
     Page:
       in: query
@@ -395,8 +478,44 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ProblemDetails'
+    Unauthorized:
+      description: Missing or invalid authentication token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+    Forbidden:
+      description: Authenticated but not allowed for this role
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
 
   schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, maxLength: 128 }
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, minLength: 20 }
+
+    AuthTokens:
+      type: object
+      required: [accessToken, refreshToken, expiresIn, tokenType, user]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        tokenType: { type: string, example: Bearer }
+        expiresIn: { type: integer, description: Access token lifetime in seconds }
+        user:
+          $ref: '#/components/schemas/User'
+
     User:
       type: object
       required: [id, email, fullName, role, status]

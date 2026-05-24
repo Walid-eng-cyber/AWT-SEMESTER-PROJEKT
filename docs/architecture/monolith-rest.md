@@ -91,6 +91,18 @@ Owns user-facing messages triggered by domain events.
 - Observability: request id + structured logs + metrics
 - Idempotency: `Idempotency-Key` required on booking creation
 
+## Access Control (RBAC)
+- Roles: `student`, `staff`, `admin`
+- Default policy: all `/api/v1` endpoints require authenticated users unless explicitly marked public (`/auth/login`, `/auth/refresh`).
+- Permission model:
+  - `student`: self-profile, room search, availability, own bookings, notifications
+  - `staff`: student permissions + booking confirmation
+  - `admin`: full user and room administration + all booking actions
+- Enforcement points:
+  - API layer enforces JWT authentication
+  - Controller guards enforce role checks
+  - Service layer enforces ownership checks (for example booking owner)
+
 ## Evolution Path
 - Step 1: Keep single database with table ownership by module.
 - Step 2: Introduce message broker for events when real-time features grow.

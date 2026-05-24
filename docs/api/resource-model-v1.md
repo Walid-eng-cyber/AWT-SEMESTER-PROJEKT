@@ -5,6 +5,34 @@
 - Non-breaking changes are additive inside v1 (for example: new optional fields, new query filters, new endpoints).
 - Breaking changes require a new major path (for example `/api/v2`).
 
+## Authentication and Authorization
+- Authentication mechanism: JWT bearer access token.
+- Token refresh flow: short-lived access token + refresh token rotation.
+- API default: authenticated endpoints under `/api/v1`.
+- Public endpoints:
+  - `POST /api/v1/auth/login`
+  - `POST /api/v1/auth/refresh`
+
+### Roles
+- `student`: creates and manages own bookings, reads rooms and availability.
+- `staff`: has student capabilities plus booking confirmation operations.
+- `admin`: full access including user and room administration.
+
+### RBAC Matrix (v1)
+- Users
+  - `GET /users/me`, `PATCH /users/me`: student, staff, admin
+  - `GET /users`, `GET /users/{userId}`, `PATCH /users/{userId}`: admin
+- Rooms
+  - `GET /rooms`, `GET /rooms/{roomId}`, `GET /rooms/available`: student, staff, admin
+  - `POST /rooms`, `PATCH /rooms/{roomId}`: admin
+- Bookings
+  - `GET /bookings`, `GET /bookings/{bookingId}`, `POST /bookings`, `POST /bookings/{bookingId}/cancel`: student, staff, admin
+  - `POST /bookings/{bookingId}/confirm`: staff, admin
+- Availability
+  - `GET /availability`: student, staff, admin
+- Notifications
+  - `GET /notifications`, `POST /notifications/{notificationId}/read`: student, staff, admin
+
 ## Resource Model
 
 ### User
@@ -50,6 +78,11 @@ Represents an in-app user message.
 - State fields: `read`, `createdAt`
 - Relationships:
   - Each notification belongs to exactly one user.
+
+### AuthTokens
+Represents login/refresh response payload.
+- Security fields: `accessToken`, `refreshToken`, `expiresIn`, `tokenType`
+- Context fields: embedded `user`
 
 ## Endpoint Design by Resource (v1)
 
