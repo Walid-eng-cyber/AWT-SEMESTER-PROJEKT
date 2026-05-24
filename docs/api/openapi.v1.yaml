@@ -1,0 +1,440 @@
+openapi: 3.0.3
+info:
+  title: AWT Room Booking API
+  version: 1.0.0
+  description: REST contract for modular monolith domains.
+servers:
+  - url: /api/v1
+tags:
+  - name: Users
+  - name: Rooms
+  - name: Bookings
+  - name: Availability
+  - name: Notifications
+paths:
+  /users/me:
+    get:
+      tags: [Users]
+      summary: Get authenticated user profile
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+    patch:
+      tags: [Users]
+      summary: Update authenticated user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Updated user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users:
+    get:
+      tags: [Users]
+      summary: List users (admin)
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paged users
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedUsers'
+
+  /rooms:
+    get:
+      tags: [Rooms]
+      summary: List rooms with filters
+      parameters:
+        - in: query
+          name: building
+          schema: { type: string }
+        - in: query
+          name: type
+          schema: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
+        - in: query
+          name: minSeats
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: equipment
+          schema: { type: string }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paged rooms
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedRooms'
+
+  /rooms/{roomId}:
+    get:
+      tags: [Rooms]
+      summary: Get room details
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      responses:
+        '200':
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /bookings:
+    get:
+      tags: [Bookings]
+      summary: List bookings for current user
+      parameters:
+        - in: query
+          name: status
+          schema: { type: string, enum: [pending, confirmed, cancelled] }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paged bookings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedBookings'
+    post:
+      tags: [Bookings]
+      summary: Create booking
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBookingRequest'
+      responses:
+        '201':
+          description: Booking created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '409':
+          description: Booking conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemDetails'
+
+  /bookings/{bookingId}:
+    get:
+      tags: [Bookings]
+      summary: Get booking by id
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      responses:
+        '200':
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /bookings/{bookingId}/cancel:
+    post:
+      tags: [Bookings]
+      summary: Cancel booking
+      parameters:
+        - $ref: '#/components/parameters/BookingId'
+      responses:
+        '200':
+          description: Booking cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Booking'
+
+  /availability:
+    get:
+      tags: [Availability]
+      summary: Get availability for one room in a time window
+      parameters:
+        - $ref: '#/components/parameters/RoomIdQuery'
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Room availability view
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AvailabilityWindow'
+
+  /rooms/available:
+    get:
+      tags: [Availability]
+      summary: Find available rooms in a time window
+      parameters:
+        - in: query
+          name: from
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          required: true
+          schema: { type: string, format: date-time }
+        - in: query
+          name: minSeats
+          schema: { type: integer, minimum: 1 }
+        - in: query
+          name: building
+          schema: { type: string }
+      responses:
+        '200':
+          description: Available rooms
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: List notifications for current user
+      parameters:
+        - in: query
+          name: unreadOnly
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: Paged notifications
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedNotifications'
+
+  /notifications/{notificationId}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark notification as read
+      parameters:
+        - in: path
+          name: notificationId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Updated notification
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+
+components:
+  parameters:
+    Page:
+      in: query
+      name: page
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      in: query
+      name: pageSize
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    RoomId:
+      in: path
+      name: roomId
+      required: true
+      schema: { type: string }
+    RoomIdQuery:
+      in: query
+      name: roomId
+      required: true
+      schema: { type: string }
+    BookingId:
+      in: path
+      name: bookingId
+      required: true
+      schema: { type: string }
+
+  responses:
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ProblemDetails'
+
+  schemas:
+    User:
+      type: object
+      required: [id, email, fullName, role, status]
+      properties:
+        id: { type: string }
+        email: { type: string, format: email }
+        fullName: { type: string }
+        universityId: { type: string }
+        role: { type: string, enum: [student, staff, admin] }
+        status: { type: string, enum: [active, blocked] }
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        fullName: { type: string, minLength: 2 }
+
+    Room:
+      type: object
+      required: [id, name, building, floor, seats, type, status]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        building: { type: string }
+        floor: { type: string }
+        seats: { type: integer, minimum: 1 }
+        type: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
+        equipment:
+          type: array
+          items: { type: string }
+        status: { type: string, enum: [active, maintenance, archived] }
+
+    Booking:
+      type: object
+      required: [id, roomId, userId, startsAt, endsAt, purpose, status]
+      properties:
+        id: { type: string }
+        roomId: { type: string }
+        userId: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        purpose: { type: string }
+        status: { type: string, enum: [pending, confirmed, cancelled] }
+        createdAt: { type: string, format: date-time }
+
+    CreateBookingRequest:
+      type: object
+      required: [roomId, startsAt, endsAt, purpose]
+      properties:
+        roomId: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        purpose: { type: string, minLength: 3, maxLength: 200 }
+
+    AvailabilitySlot:
+      type: object
+      required: [startsAt, endsAt, state]
+      properties:
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        state: { type: string, enum: [free, occupied, maintenance] }
+
+    AvailabilityWindow:
+      type: object
+      required: [roomId, from, to, slots]
+      properties:
+        roomId: { type: string }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        slots:
+          type: array
+          items:
+            $ref: '#/components/schemas/AvailabilitySlot'
+
+    Notification:
+      type: object
+      required: [id, userId, type, title, message, read, createdAt]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        type: { type: string, enum: [booking_confirmed, booking_cancelled, reminder, system] }
+        title: { type: string }
+        message: { type: string }
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    ProblemDetails:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        traceId: { type: string }
+
+    PagedUsers:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/User' }
+
+    PagedRooms:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/Room' }
+
+    PagedBookings:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/Booking' }
+
+    PagedNotifications:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          properties:
+            data:
+              type: array
+              items: { $ref: '#/components/schemas/Notification' }
+
+    PageMeta:
+      type: object
+      required: [page, pageSize, total]
+      properties:
+        page: { type: integer }
+        pageSize: { type: integer }
+        total: { type: integer }
