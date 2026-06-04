@@ -1,197 +1,71 @@
 openapi: 3.0.3
 info:
-  title: AWT Room Booking API
+  title: AWT Campus Platform API
   version: 1.0.0
   description: |
-    REST contract for modular monolith domains.
+    OpenAPI contract aligned to the currently implemented backend scope.
 
-    Versioning strategy:
-    - Base path versioning with /api/v1
-    - Additive, backward-compatible changes inside v1
-    - Breaking changes require a new major version path (for example /api/v2)
+    Implemented now:
+    - System health endpoint
+    - Room REST API
+    - Appointment REST API with conflict checks
+    - GraphQL gateway bridge endpoint
+
+    Planned in later increments:
+    - Full auth/roles enforcement in backend runtime
+    - Notifications and availability domain endpoints
 servers:
-  - url: /api/v1
+  - url: http://localhost:4000/api/v1
+    description: Local REST API
 tags:
-  - name: Auth
-  - name: Users
+  - name: System
   - name: Rooms
-  - name: Bookings
-  - name: Availability
-  - name: Notifications
-security:
-  - BearerAuth: []
+  - name: Appointments
+  - name: GraphQL
 paths:
-  /auth/login:
-    post:
-      tags: [Auth]
-      summary: Authenticate user with university credentials
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/LoginRequest'
-      responses:
-        '200':
-          description: Access and refresh token pair
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /auth/refresh:
-    post:
-      tags: [Auth]
-      summary: Refresh expired access token
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
-      responses:
-        '200':
-          description: New token pair
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthTokens'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-
-  /auth/logout:
-    post:
-      tags: [Auth]
-      summary: Revoke active refresh token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
-      responses:
-        '204':
-          description: Token revoked
-
-  /users/me:
+  /health:
     get:
-      tags: [Users]
-      summary: Get authenticated user profile
-      x-required-roles: [student, staff, admin]
+      tags: [System]
+      summary: Health check
       responses:
         '200':
-          description: User profile
+          description: Service is healthy
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/User'
-    patch:
-      tags: [Users]
-      summary: Update authenticated user profile
-      x-required-roles: [student, staff, admin]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateUserRequest'
-      responses:
-        '200':
-          description: Updated user profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-
-  /users:
-    get:
-      tags: [Users]
-      summary: List users (admin)
-      x-required-roles: [admin]
-      parameters:
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
-      responses:
-        '200':
-          description: Paged users
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PagedUsers'
-
-  /users/{userId}:
-    get:
-      tags: [Users]
-      summary: Get user by id (admin)
-      x-required-roles: [admin]
-      parameters:
-        - $ref: '#/components/parameters/UserId'
-      responses:
-        '200':
-          description: User profile
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '404':
-          $ref: '#/components/responses/NotFound'
-    patch:
-      tags: [Users]
-      summary: Update user by id (admin)
-      x-required-roles: [admin]
-      parameters:
-        - $ref: '#/components/parameters/UserId'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UpdateUserRequest'
-      responses:
-        '200':
-          description: Updated user
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '404':
-          $ref: '#/components/responses/NotFound'
+                type: object
+                required: [ok, service]
+                properties:
+                  ok: { type: boolean }
+                  service: { type: string }
 
   /rooms:
     get:
       tags: [Rooms]
-      summary: List rooms with filters
-      x-required-roles: [student, staff, admin]
+      summary: List rooms
       parameters:
         - in: query
-          name: building
+          name: location
           schema: { type: string }
         - in: query
-          name: type
-          schema: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
+          name: status
+          schema:
+            $ref: '#/components/schemas/RoomStatus'
         - in: query
-          name: minSeats
+          name: minCapacity
           schema: { type: integer, minimum: 1 }
-        - in: query
-          name: equipment
-          schema: { type: string }
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
       responses:
         '200':
-          description: Paged rooms
+          description: Rooms list
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/PagedRooms'
+                type: array
+                items:
+                  $ref: '#/components/schemas/Room'
     post:
       tags: [Rooms]
-      summary: Create room (admin)
-      x-required-roles: [admin]
+      summary: Create room
       requestBody:
         required: true
         content:
@@ -205,12 +79,13 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
 
-  /rooms/{roomId}:
+  /rooms/{id}:
     get:
       tags: [Rooms]
-      summary: Get room details
-      x-required-roles: [student, staff, admin]
+      summary: Get room by id
       parameters:
         - $ref: '#/components/parameters/RoomId'
       responses:
@@ -224,8 +99,7 @@ paths:
           $ref: '#/components/responses/NotFound'
     patch:
       tags: [Rooms]
-      summary: Update room (admin)
-      x-required-roles: [admin]
+      summary: Update room
       parameters:
         - $ref: '#/components/parameters/RoomId'
       requestBody:
@@ -236,447 +110,341 @@ paths:
               $ref: '#/components/schemas/UpdateRoomRequest'
       responses:
         '200':
-          description: Updated room
+          description: Room updated
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Rooms]
+      summary: Delete room
+      parameters:
+        - $ref: '#/components/parameters/RoomId'
+      responses:
+        '204':
+          description: Room deleted
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /bookings:
-    get:
-      tags: [Bookings]
-      summary: List bookings for current user
-      x-required-roles: [student, staff, admin]
+  /rooms/{id}/status:
+    patch:
+      tags: [Rooms]
+      summary: Update room status
       parameters:
-        - in: query
-          name: status
-          schema: { type: string, enum: [pending, confirmed, cancelled] }
-        - in: query
-          name: from
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          schema: { type: string, format: date-time }
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
-      responses:
-        '200':
-          description: Paged bookings
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PagedBookings'
-    post:
-      tags: [Bookings]
-      summary: Create booking
-      x-required-roles: [student, staff, admin]
-      parameters:
-        - in: header
-          name: Idempotency-Key
-          required: true
-          schema: { type: string }
+        - $ref: '#/components/parameters/RoomId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateBookingRequest'
-      responses:
-        '201':
-          description: Booking created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Booking'
-        '409':
-          description: Booking conflict
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ProblemDetails'
-
-  /bookings/{bookingId}:
-    get:
-      tags: [Bookings]
-      summary: Get booking by id
-      x-required-roles: [student, staff, admin]
-      parameters:
-        - $ref: '#/components/parameters/BookingId'
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: '#/components/schemas/RoomStatus'
       responses:
         '200':
-          description: Booking details
+          description: Room status updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Booking'
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /bookings/{bookingId}/cancel:
-    post:
-      tags: [Bookings]
-      summary: Cancel booking
-      x-required-roles: [student, staff, admin]
-      parameters:
-        - $ref: '#/components/parameters/BookingId'
-      responses:
-        '200':
-          description: Booking cancelled
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Booking'
-
-  /bookings/{bookingId}/confirm:
-    post:
-      tags: [Bookings]
-      summary: Confirm booking (staff/admin)
-      x-required-roles: [staff, admin]
-      parameters:
-        - $ref: '#/components/parameters/BookingId'
-      responses:
-        '200':
-          description: Booking confirmed
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Booking'
-
-  /availability:
+  /appointments:
     get:
-      tags: [Availability]
-      summary: Get availability for one room in a time window
-      x-required-roles: [student, staff, admin]
-      parameters:
-        - $ref: '#/components/parameters/RoomIdQuery'
-        - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-      responses:
-        '200':
-          description: Room availability view
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AvailabilityWindow'
-
-  /rooms/available:
-    get:
-      tags: [Availability]
-      summary: Find available rooms in a time window
-      x-required-roles: [student, staff, admin]
+      tags: [Appointments]
+      summary: List appointments
       parameters:
         - in: query
-          name: from
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: to
-          required: true
-          schema: { type: string, format: date-time }
-        - in: query
-          name: minSeats
-          schema: { type: integer, minimum: 1 }
-        - in: query
-          name: building
+          name: roomId
           schema: { type: string }
+        - in: query
+          name: status
+          schema:
+            $ref: '#/components/schemas/AppointmentStatus'
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
       responses:
         '200':
-          description: Available rooms
+          description: Appointments list
           content:
             application/json:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/Room'
-
-  /notifications:
-    get:
-      tags: [Notifications]
-      summary: List notifications for current user
-      x-required-roles: [student, staff, admin]
-      parameters:
-        - in: query
-          name: unreadOnly
-          schema: { type: boolean }
-        - $ref: '#/components/parameters/Page'
-        - $ref: '#/components/parameters/PageSize'
-      responses:
-        '200':
-          description: Paged notifications
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/PagedNotifications'
-
-  /notifications/{notificationId}/read:
+                  $ref: '#/components/schemas/AppointmentWithRoom'
     post:
-      tags: [Notifications]
-      summary: Mark notification as read
-      x-required-roles: [student, staff, admin]
-      parameters:
-        - in: path
-          name: notificationId
-          required: true
-          schema: { type: string }
+      tags: [Appointments]
+      summary: Create appointment
+      description: Rejects overlapping non-cancelled appointments in the same room.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAppointmentRequest'
       responses:
-        '200':
-          description: Updated notification
+        '201':
+          description: Appointment created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Notification'
+                $ref: '#/components/schemas/AppointmentWithRoom'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /appointments/{id}:
+    get:
+      tags: [Appointments]
+      summary: Get appointment by id
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Appointment details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentWithRoom'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Appointments]
+      summary: Update appointment
+      description: Applies the same time conflict checks as create.
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAppointmentRequest'
+      responses:
+        '200':
+          description: Appointment updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentWithRoom'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+    delete:
+      tags: [Appointments]
+      summary: Delete appointment
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '204':
+          description: Appointment deleted
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /graphql:
+    post:
+      tags: [GraphQL]
+      summary: GraphQL gateway endpoint
+      description: |
+        GraphQL bridge endpoint hosted by the same backend.
+        Example supported queries:
+        - rooms
+        - appointments
+        - roomsWithNextAppointments
+        - freeRooms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string }
+                variables: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: GraphQL response envelope
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { type: object, additionalProperties: true }
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
 
 components:
-  securitySchemes:
-    BearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
   parameters:
-    Page:
-      in: query
-      name: page
-      schema: { type: integer, minimum: 1, default: 1 }
-    PageSize:
-      in: query
-      name: pageSize
-      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
     RoomId:
       in: path
-      name: roomId
+      name: id
       required: true
       schema: { type: string }
-    RoomIdQuery:
-      in: query
-      name: roomId
-      required: true
-      schema: { type: string }
-    BookingId:
+    AppointmentId:
       in: path
-      name: bookingId
-      required: true
-      schema: { type: string }
-    UserId:
-      in: path
-      name: userId
+      name: id
       required: true
       schema: { type: string }
 
   responses:
+    BadRequest:
+      description: Invalid request payload or parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
     NotFound:
       description: Resource not found
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    Unauthorized:
-      description: Missing or invalid authentication token
+            $ref: '#/components/schemas/ApiError'
+    Conflict:
+      description: Resource conflict (for example overlapping appointment)
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ProblemDetails'
-    Forbidden:
-      description: Authenticated but not allowed for this role
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ProblemDetails'
+            $ref: '#/components/schemas/ApiError'
 
   schemas:
-    LoginRequest:
+    ApiError:
       type: object
-      required: [email, password]
+      required: [type, message]
       properties:
-        email: { type: string, format: email }
-        password: { type: string, minLength: 8, maxLength: 128 }
+        type: { type: string }
+        message: { type: string }
+        issues:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
 
-    RefreshTokenRequest:
-      type: object
-      required: [refreshToken]
-      properties:
-        refreshToken: { type: string, minLength: 20 }
+    RoomStatus:
+      type: string
+      enum: [AVAILABLE, OCCUPIED, MAINTENANCE]
 
-    AuthTokens:
-      type: object
-      required: [accessToken, refreshToken, expiresIn, tokenType, user]
-      properties:
-        accessToken: { type: string }
-        refreshToken: { type: string }
-        tokenType: { type: string, example: Bearer }
-        expiresIn: { type: integer, description: Access token lifetime in seconds }
-        user:
-          $ref: '#/components/schemas/User'
-
-    User:
-      type: object
-      required: [id, email, fullName, role, status]
-      properties:
-        id: { type: string }
-        email: { type: string, format: email }
-        fullName: { type: string }
-        universityId: { type: string }
-        role: { type: string, enum: [student, staff, admin] }
-        status: { type: string, enum: [active, blocked] }
-
-    UpdateUserRequest:
-      type: object
-      properties:
-        fullName: { type: string, minLength: 2 }
+    AppointmentStatus:
+      type: string
+      enum: [DRAFT, CONFIRMED, CANCELLED]
 
     Room:
       type: object
-      required: [id, name, building, floor, seats, type, status]
+      required: [id, name, location, capacity, equipment, status, createdAt, updatedAt]
       properties:
         id: { type: string }
         name: { type: string }
-        building: { type: string }
-        floor: { type: string }
-        seats: { type: integer, minimum: 1 }
-        type: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
+        location: { type: string }
+        capacity: { type: integer }
         equipment:
           type: array
           items: { type: string }
-        status: { type: string, enum: [active, maintenance, archived] }
+        status:
+          $ref: '#/components/schemas/RoomStatus'
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
     CreateRoomRequest:
       type: object
-      required: [name, building, floor, seats, type]
+      required: [name, location, capacity]
       properties:
         name: { type: string, minLength: 2, maxLength: 120 }
-        building: { type: string, minLength: 1, maxLength: 60 }
-        floor: { type: string, minLength: 1, maxLength: 30 }
-        seats: { type: integer, minimum: 1, maximum: 1000 }
-        type: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
+        location: { type: string, minLength: 2, maxLength: 160 }
+        capacity: { type: integer, minimum: 1 }
         equipment:
           type: array
           items: { type: string }
+          default: []
+        status:
+          $ref: '#/components/schemas/RoomStatus'
 
     UpdateRoomRequest:
       type: object
       properties:
         name: { type: string, minLength: 2, maxLength: 120 }
-        building: { type: string, minLength: 1, maxLength: 60 }
-        floor: { type: string, minLength: 1, maxLength: 30 }
-        seats: { type: integer, minimum: 1, maximum: 1000 }
-        type: { type: string, enum: [Seminar, Lab, Lecture, Studio] }
+        location: { type: string, minLength: 2, maxLength: 160 }
+        capacity: { type: integer, minimum: 1 }
         equipment:
           type: array
           items: { type: string }
-        status: { type: string, enum: [active, maintenance, archived] }
+        status:
+          $ref: '#/components/schemas/RoomStatus'
 
-    Booking:
+    Appointment:
       type: object
-      required: [id, roomId, userId, startsAt, endsAt, purpose, status]
+      required: [id, title, roomId, startsAt, endsAt, participants, status, createdAt, updatedAt]
       properties:
         id: { type: string }
-        roomId: { type: string }
-        userId: { type: string }
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
-        purpose: { type: string }
-        status: { type: string, enum: [pending, confirmed, cancelled] }
-        createdAt: { type: string, format: date-time }
-
-    CreateBookingRequest:
-      type: object
-      required: [roomId, startsAt, endsAt, purpose]
-      properties:
+        title: { type: string }
+        description: { type: string, nullable: true }
         roomId: { type: string }
         startsAt: { type: string, format: date-time }
         endsAt: { type: string, format: date-time }
-        purpose: { type: string, minLength: 3, maxLength: 200 }
-
-    AvailabilitySlot:
-      type: object
-      required: [startsAt, endsAt, state]
-      properties:
-        startsAt: { type: string, format: date-time }
-        endsAt: { type: string, format: date-time }
-        state: { type: string, enum: [free, occupied, maintenance] }
-
-    AvailabilityWindow:
-      type: object
-      required: [roomId, from, to, slots]
-      properties:
-        roomId: { type: string }
-        from: { type: string, format: date-time }
-        to: { type: string, format: date-time }
-        slots:
+        participants:
           type: array
-          items:
-            $ref: '#/components/schemas/AvailabilitySlot'
-
-    Notification:
-      type: object
-      required: [id, userId, type, title, message, read, createdAt]
-      properties:
-        id: { type: string }
-        userId: { type: string }
-        type: { type: string, enum: [booking_confirmed, booking_cancelled, reminder, system] }
-        title: { type: string }
-        message: { type: string }
-        read: { type: boolean }
+          items: { type: string, format: email }
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'
         createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
 
-    ProblemDetails:
+    AppointmentWithRoom:
+      allOf:
+        - $ref: '#/components/schemas/Appointment'
+        - type: object
+          required: [room]
+          properties:
+            room:
+              $ref: '#/components/schemas/Room'
+
+    CreateAppointmentRequest:
       type: object
-      required: [type, title, status]
+      required: [title, roomId, startsAt, endsAt]
       properties:
-        type: { type: string }
-        title: { type: string }
-        status: { type: integer }
-        detail: { type: string }
-        traceId: { type: string }
+        title: { type: string, minLength: 2, maxLength: 120 }
+        description: { type: string, maxLength: 500 }
+        roomId: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        participants:
+          type: array
+          items: { type: string, format: email }
+          default: []
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'
 
-    PagedUsers:
-      allOf:
-        - $ref: '#/components/schemas/PageMeta'
-        - type: object
-          properties:
-            data:
-              type: array
-              items: { $ref: '#/components/schemas/User' }
-
-    PagedRooms:
-      allOf:
-        - $ref: '#/components/schemas/PageMeta'
-        - type: object
-          properties:
-            data:
-              type: array
-              items: { $ref: '#/components/schemas/Room' }
-
-    PagedBookings:
-      allOf:
-        - $ref: '#/components/schemas/PageMeta'
-        - type: object
-          properties:
-            data:
-              type: array
-              items: { $ref: '#/components/schemas/Booking' }
-
-    PagedNotifications:
-      allOf:
-        - $ref: '#/components/schemas/PageMeta'
-        - type: object
-          properties:
-            data:
-              type: array
-              items: { $ref: '#/components/schemas/Notification' }
-
-    PageMeta:
+    UpdateAppointmentRequest:
       type: object
-      required: [page, pageSize, total]
       properties:
-        page: { type: integer }
-        pageSize: { type: integer }
-        total: { type: integer }
+        title: { type: string, minLength: 2, maxLength: 120 }
+        description: { type: string, nullable: true, maxLength: 500 }
+        roomId: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        participants:
+          type: array
+          items: { type: string, format: email }
+        status:
+          $ref: '#/components/schemas/AppointmentStatus'

@@ -63,6 +63,21 @@ Represents a reservation of a room for a time range.
 - Relationships:
   - Each booking belongs to one room and one user.
 
+#### Booking lifecycle rules
+- Create:
+  - Initial status is `pending`.
+  - `endsAt` must be strictly greater than `startsAt`.
+  - Create request is idempotent via `Idempotency-Key`.
+- Confirm:
+  - Allowed only for `staff` and `admin`.
+  - Transition allowed only from `pending` to `confirmed`.
+- Cancel:
+  - Allowed for booking owner, `staff`, or `admin`.
+  - Transitions allowed from `pending` or `confirmed` to `cancelled`.
+- Conflict checks:
+  - Booking is rejected when same room has overlapping non-cancelled booking.
+  - Overlap rule: `[a.start, a.end)` overlaps `[b.start, b.end)` iff `a.start < b.end` and `b.start < a.end`.
+
 ### AvailabilityWindow
 Read-model resource for scheduling decisions.
 - Identity fields: `roomId`
@@ -126,6 +141,11 @@ Represents login/refresh response payload.
   - `pending|confirmed -> cancelled`
 - Notification transitions:
   - `read: false -> true`
+
+## Booking Error Semantics
+- `400 Bad Request`: invalid time range (`endsAt <= startsAt`) or malformed timestamps.
+- `403 Forbidden`: role/ownership violation (for example student confirms booking not allowed).
+- `409 Conflict`: overlapping booking or invalid lifecycle transition.
 
 ## Compatibility Rules
 - Do not remove or rename fields in v1 once released.

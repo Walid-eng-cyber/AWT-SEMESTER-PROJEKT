@@ -1,6 +1,7 @@
 import type { Booking, BookingStatus, CreateBookingRequest, PagedResponse } from '../contracts'
 import { endpoints } from '../endpoints'
 import { getJson, postJson } from '../http'
+import { assertValidCreateBookingRequest } from './bookingLifecycle'
 
 export interface BookingsFilter {
   status?: BookingStatus
@@ -25,9 +26,15 @@ export function getBookingById(bookingId: string): Promise<Booking> {
 }
 
 export function createBooking(input: CreateBookingRequest, idempotencyKey: string): Promise<Booking> {
+  assertValidCreateBookingRequest(input)
+
   return postJson<Booking, CreateBookingRequest>(endpoints.bookings.create, input, {
     'Idempotency-Key': idempotencyKey,
   })
+}
+
+export function confirmBooking(bookingId: string): Promise<Booking> {
+  return postJson<Booking>(endpoints.bookings.confirm(bookingId))
 }
 
 export function cancelBooking(bookingId: string): Promise<Booking> {

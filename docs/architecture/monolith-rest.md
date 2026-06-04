@@ -43,6 +43,12 @@ Owns reservation lifecycle and business rules.
   - Booking CRUD-style commands/queries
   - User bookings history
 
+Booking lifecycle enforcement:
+- Create always starts in `pending`.
+- Confirm allowed only for `staff`/`admin` (`pending -> confirmed`).
+- Cancel allowed for owner, `staff`, `admin` (`pending|confirmed -> cancelled`).
+- Conflict rule: no overlap for non-cancelled bookings in same room/time window.
+
 ### Availability
 Owns computed free/occupied intervals and slot views.
 - Core responsibilities:

@@ -14,6 +14,7 @@ export const endpoints = {
     list: `${API_BASE}/bookings`,
     create: `${API_BASE}/bookings`,
     byId: (bookingId: string) => `${API_BASE}/bookings/${bookingId}`,
+    confirm: (bookingId: string) => `${API_BASE}/bookings/${bookingId}/confirm`,
     cancel: (bookingId: string) => `${API_BASE}/bookings/${bookingId}/cancel`,
   },
   availability: {

@@ -1,0 +1,53 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum AppointmentStatus {
+  DRAFT
+  CONFIRMED
+  CANCELLED
+}
+
+model Room {
+  id          String        @id @default(cuid())
+  name        String
+  location    String
+  capacity    Int
+  equipment   String[]
+  status      RoomStatus    @default(AVAILABLE)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  appointments Appointment[]
+
+  @@index([location])
+  @@index([status])
+}
+
+model Appointment {
+  id          String            @id @default(cuid())
+  title       String
+  description String?
+  roomId      String
+  startsAt    DateTime
+  endsAt      DateTime
+  participants String[]
+  status      AppointmentStatus @default(DRAFT)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([startsAt, endsAt])
+}
