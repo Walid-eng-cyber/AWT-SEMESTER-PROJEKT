@@ -1,15 +1,17 @@
 import { Link, useLocation } from 'react-router-dom'
 import { LayoutDashboard, Search, CalendarDays, PlusCircle } from 'lucide-react'
-
-const items = [
-  { label: 'Home', to: '/dashboard', icon: LayoutDashboard },
-  { label: 'Rooms', to: '/rooms', icon: Search },
-  { label: 'Bookings', to: '/bookings', icon: CalendarDays },
-  { label: 'New', to: '/rooms', icon: PlusCircle },
-]
+import { usePreferences } from '../../preferences/PreferencesContext'
 
 export default function MobileBottomNav() {
   const { pathname } = useLocation()
+  const { t } = usePreferences()
+
+  const items = [
+    { label: t.home, to: '/dashboard', icon: LayoutDashboard },
+    { label: t.rooms, to: '/rooms', icon: Search },
+    { label: t.bookings, to: '/bookings', icon: CalendarDays },
+    { label: t.newBooking, to: '/rooms', icon: PlusCircle },
+  ]
 
   return (
     <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-brand-border shadow-[0_-8px_24px_rgba(0,0,0,0.08)]">

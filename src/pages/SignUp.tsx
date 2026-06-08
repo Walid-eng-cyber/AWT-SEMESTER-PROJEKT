@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Eye, EyeOff, ShieldCheck, Clock } from 'lucide-react'
 import logo from '../assets/logo.png'
+import { usePreferences } from '../preferences/PreferencesContext'
 
 export default function SignUp() {
   const [showPw, setShowPw] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const { t } = usePreferences()
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -63,28 +65,28 @@ export default function SignUp() {
               <img src={logo} alt="Hochschule Mainz" className="h-36 mx-auto" />
             </Link>
 
-            <h2 className="text-2xl font-bold text-brand-dark mb-1">Create Account</h2>
-            <p className="text-sm text-brand-muted mb-8">Enter your details to register for the Room Portal.</p>
+            <h2 className="text-2xl font-bold text-brand-dark mb-1">{t.createAccount}</h2>
+            <p className="text-sm text-brand-muted mb-8">{t.createAccountSubtitle}</p>
 
             <form className="space-y-5">
               <div>
-                <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Full Name</label>
+                <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">{t.fullName}</label>
                 <input type="text" className="input-field" placeholder="e.g. Johannes Gutenberg" />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">University Email</label>
+                <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">{t.universityEmail}</label>
                 <input type="email" className="input-field" placeholder="student@hs-mainz.de" />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">ID Number</label>
+                <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">{t.idNumber}</label>
                 <input type="text" className="input-field" placeholder="7-digit matriculation number" maxLength={7} />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Password</label>
+                  <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">{t.password}</label>
                   <div className="relative">
                     <input type={showPw ? 'text' : 'password'} className="input-field pr-10" placeholder="••••••••" />
                     <button type="button" onClick={() => setShowPw(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-dark">
@@ -93,7 +95,7 @@ export default function SignUp() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Confirm</label>
+                  <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">{t.confirm}</label>
                   <div className="relative">
                     <input type={showConfirm ? 'text' : 'password'} className="input-field pr-10" placeholder="••••••••" />
                     <button type="button" onClick={() => setShowConfirm(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-dark">
@@ -119,13 +121,13 @@ export default function SignUp() {
               </label>
 
               <button type="submit" disabled={!agreed} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
-                Create Account
+                {t.createAccount}
               </button>
             </form>
 
             <p className="text-xs text-center text-brand-muted mt-6">
-              Already have an institutional account?{' '}
-              <Link to="/signin" className="text-brand-dark font-semibold hover:underline">Sign In</Link>
+              {t.alreadyHaveAccount}{' '}
+              <Link to="/signin" className="text-brand-dark font-semibold hover:underline">{t.signIn}</Link>
             </p>
           </div>
         </div>

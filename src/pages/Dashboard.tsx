@@ -4,6 +4,7 @@ import Sidebar from '../components/layout/Sidebar'
 import Footer from '../components/layout/Footer'
 import MobileBottomNav from '../components/layout/MobileBottomNav'
 import { MapPin, Calendar, ChevronRight, ExternalLink } from 'lucide-react'
+import { usePreferences } from '../preferences/PreferencesContext'
 
 const upcoming = [
   { title: 'Design Review: Phase 2', room: 'Room 104 · Holzstraße', time: 'Today · 14:00', status: 'confirmed' },
@@ -21,6 +22,8 @@ const activity = [
 ]
 
 export default function Dashboard() {
+  const { t } = usePreferences()
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar authenticated />
@@ -30,32 +33,31 @@ export default function Dashboard() {
         <main className="flex-1 p-4 sm:p-6 lg:p-8 pb-24 lg:pb-8 overflow-y-auto">
           {/* Breadcrumb */}
           <p className="text-xs text-brand-muted mb-6">
-            Campus Mainz &rsaquo; <span className="text-brand-dark font-medium">Dashboard</span>
+            Campus Mainz &rsaquo; <span className="text-brand-dark font-medium">{t.dashboard}</span>
           </p>
 
           {/* Welcome */}
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-brand-dark">Guten Tag, Alex.</h1>
+            <h1 className="text-2xl font-bold text-brand-dark">{t.greeting}</h1>
             <p className="text-sm text-brand-muted mt-1">
-              Your workspace at the School of Design is ready. You have{' '}
-              <span className="text-brand-dark font-semibold">2 bookings</span> scheduled for today.
+              {t.dashboardIntro}
             </p>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <div className="card p-4 sm:p-5">
-              <p className="text-xs text-brand-muted uppercase tracking-wide mb-2">Available Hubs</p>
+              <p className="text-xs text-brand-muted uppercase tracking-wide mb-2">{t.availableHubs}</p>
               <p className="text-2xl sm:text-3xl font-bold text-brand-dark">14</p>
               <p className="text-xs text-brand-muted mt-1">Rooms</p>
             </div>
             <div className="card p-4 sm:p-5">
-              <p className="text-xs text-brand-muted uppercase tracking-wide mb-2">Active Bookings</p>
+              <p className="text-xs text-brand-muted uppercase tracking-wide mb-2">{t.activeBookings}</p>
               <p className="text-2xl sm:text-3xl font-bold text-brand-dark">02</p>
               <p className="text-xs text-brand-muted mt-1">Today</p>
             </div>
             <div className="col-span-1 sm:col-span-2 lg:col-span-1 card p-4 sm:p-5 bg-brand-dark text-white">
-              <p className="text-xs text-brand-primary uppercase tracking-wide mb-2">Quick Booking</p>
+              <p className="text-xs text-brand-primary uppercase tracking-wide mb-2">{t.quickBooking}</p>
               <div className="space-y-3 mt-3">
                 <div>
                   <p className="text-xs font-semibold mb-1">Instant Studio</p>
@@ -80,8 +82,8 @@ export default function Dashboard() {
             <div className="lg:col-span-2 space-y-6">
               <div className="card p-6">
                 <div className="flex items-center justify-between mb-5">
-                  <h2 className="font-semibold text-brand-dark">Upcoming</h2>
-                  <Link to="/bookings" className="text-xs text-brand-primary font-semibold hover:underline uppercase tracking-wide">Manage All Bookings</Link>
+                  <h2 className="font-semibold text-brand-dark">{t.upcoming}</h2>
+                  <Link to="/bookings" className="text-xs text-brand-primary font-semibold hover:underline uppercase tracking-wide">{t.manageAllBookings}</Link>
                 </div>
                 <div className="space-y-3">
                   {upcoming.map(b => (
@@ -95,7 +97,7 @@ export default function Dashboard() {
                       </div>
                       <div className="text-left sm:text-right shrink-0">
                         <p className="text-xs text-brand-muted">{b.time}</p>
-                        <span className="badge-confirmed mt-1">Confirmed</span>
+                        <span className="badge-confirmed mt-1">{t.confirmed}</span>
                       </div>
                     </div>
                   ))}
@@ -105,8 +107,8 @@ export default function Dashboard() {
               {/* Recommended */}
               <div className="card p-6">
                 <div className="flex items-center justify-between mb-5">
-                  <h2 className="font-semibold text-brand-dark">Recommended Spaces</h2>
-                  <Link to="/rooms" className="text-xs text-brand-primary font-semibold hover:underline uppercase tracking-wide">View All</Link>
+                  <h2 className="font-semibold text-brand-dark">{t.recommendedSpaces}</h2>
+                  <Link to="/rooms" className="text-xs text-brand-primary font-semibold hover:underline uppercase tracking-wide">{t.viewAll}</Link>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   {recommended.map(r => (
@@ -115,16 +117,16 @@ export default function Dashboard() {
                         <div>
                           <p className="text-sm font-medium text-brand-dark leading-tight">{r.name}</p>
                           <p className="text-xs text-brand-muted mt-0.5 flex items-center gap-1">
-                            <MapPin size={10} /> {r.building} · {r.seats} Seats
+                            <MapPin size={10} /> {r.building} · {r.seats} {t.seats}
                           </p>
                         </div>
                         {r.status === 'available'
-                          ? <span className="badge-available">Available</span>
-                          : <span className="badge-inuse">In Use</span>
+                          ? <span className="badge-available">{t.available}</span>
+                          : <span className="badge-inuse">{t.inUse}</span>
                         }
                       </div>
                       <Link to={`/rooms/${r.id}`} className="text-xs text-brand-dark font-semibold hover:text-brand-primary transition-colors flex items-center gap-1 mt-3">
-                        Book Room <ChevronRight size={12} />
+                        {t.bookRoom} <ChevronRight size={12} />
                       </Link>
                     </div>
                   ))}
@@ -135,7 +137,7 @@ export default function Dashboard() {
             {/* Activity Feed */}
             <div className="card p-6 h-fit">
               <div className="flex items-center justify-between mb-5">
-                <h2 className="font-semibold text-brand-dark">Activity Feed</h2>
+                <h2 className="font-semibold text-brand-dark">{t.activityFeed}</h2>
                 <span className="badge-confirmed">3 NEW</span>
               </div>
               <div className="space-y-4">
@@ -152,7 +154,7 @@ export default function Dashboard() {
 
               <button className="btn-outline w-full mt-6 text-xs py-2">
                 <ExternalLink size={14} />
-                Explore Campus Map
+                {t.exploreCampusMap}
               </button>
             </div>
           </div>

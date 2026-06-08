@@ -2,13 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Search, Bell, Menu } from 'lucide-react'
 import { useState } from 'react'
 import logo from '../../assets/logo.png'
-
-const links = [
-  { label: 'Dashboard', to: '/dashboard' },
-  { label: 'Room Booking', to: '/rooms' },
-  { label: 'Events', to: '/events' },
-  { label: 'Support', to: '/support' },
-]
+import { usePreferences } from '../../preferences/PreferencesContext'
 
 interface NavbarProps {
   authenticated?: boolean
@@ -16,7 +10,15 @@ interface NavbarProps {
 
 export default function Navbar({ authenticated = false }: NavbarProps) {
   const { pathname } = useLocation()
+  const { t } = usePreferences()
   const [menuOpen, setMenuOpen] = useState(false)
+
+  const links = [
+    { label: t.dashboard, to: '/dashboard' },
+    { label: t.roomBooking, to: '/rooms' },
+    { label: t.events, to: '/events' },
+    { label: t.support, to: '/support' },
+  ]
 
   return (
     <header className="bg-brand-dark text-white sticky top-0 z-50">
@@ -55,7 +57,9 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
                 <Bell size={18} />
                 <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-brand-primary text-white text-[9px] flex items-center justify-center rounded-full">3</span>
               </button>
-              <div className="w-8 h-8 rounded-full bg-brand-primary flex items-center justify-center text-white text-xs font-semibold">AM</div>
+              <div className="w-8 h-8 rounded-full bg-brand-primary overflow-hidden flex items-center justify-center text-white text-xs font-semibold">
+                AM
+              </div>
             </div>
           </>
         ) : (
@@ -69,8 +73,8 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
               ))}
             </nav>
             <div className="hidden md:flex items-center gap-3">
-              <Link to="/signin" className="text-sm text-gray-300 hover:text-white transition-colors">Sign In</Link>
-              <Link to="/signup" className="btn-accent text-xs px-4 py-2">Sign Up</Link>
+              <Link to="/signin" className="text-sm text-gray-300 hover:text-white transition-colors">{t.signIn}</Link>
+              <Link to="/signup" className="btn-accent text-xs px-4 py-2">{t.signUp}</Link>
             </div>
           </>
         )}
@@ -91,8 +95,8 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
           ))}
           {!authenticated && (
             <div className="pt-2 flex gap-3">
-              <Link to="/signin" className="text-sm text-gray-300" onClick={() => setMenuOpen(false)}>Sign In</Link>
-              <Link to="/signup" className="text-sm text-brand-primary" onClick={() => setMenuOpen(false)}>Sign Up</Link>
+              <Link to="/signin" className="text-sm text-gray-300" onClick={() => setMenuOpen(false)}>{t.signIn}</Link>
+              <Link to="/signup" className="text-sm text-brand-primary" onClick={() => setMenuOpen(false)}>{t.signUp}</Link>
             </div>
           )}
         </div>

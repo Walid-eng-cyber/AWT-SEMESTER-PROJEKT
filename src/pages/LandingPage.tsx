@@ -3,6 +3,7 @@ import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
 import { ArrowRight, Layers, Users, Cpu } from 'lucide-react'
 import logo from '../assets/logo.png'
+import landingHero from '../assets/landing-hero.jpeg'
 
 const stats = [
   { value: '150+', label: 'Flexible Spaces' },
@@ -53,8 +54,8 @@ export default function LandingPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="bg-brand-dark text-white relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{backgroundImage:'repeating-linear-gradient(90deg,#A5CD39 0px,#A5CD39 1px,transparent 1px,transparent 80px),repeating-linear-gradient(180deg,#A5CD39 0px,#A5CD39 1px,transparent 1px,transparent 80px)'}} />
+      <section className="text-white relative overflow-hidden bg-cover bg-center" style={{ backgroundImage: `url(${landingHero})` }}>
+        <div className="absolute inset-0 bg-brand-dark/70" />
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-24 relative z-10">
           <div className="max-w-2xl">
             <img src={logo} alt="Hochschule Mainz" className="h-40 sm:h-44 mb-6 brightness-0 invert" />

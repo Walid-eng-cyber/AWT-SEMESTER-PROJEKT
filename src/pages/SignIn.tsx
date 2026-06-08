@@ -1,11 +1,62 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import logo from '../assets/logo.png'
+import { usePreferences } from '../preferences/PreferencesContext'
+import { postJson, setAccessToken } from '../api/http'
+
+interface LoginResponse {
+  tokenType: string
+  accessToken: string
+  expiresIn: number
+  user: {
+    id: string
+    email: string
+    role: 'student' | 'staff' | 'admin'
+  }
+}
 
 export default function SignIn() {
+  const navigate = useNavigate()
   const [showPw, setShowPw] = useState(false)
   const [remember, setRemember] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const { t } = usePreferences()
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      const normalizedEmail = email.trim().toLowerCase()
+      if (!normalizedEmail) {
+        throw new Error('Please enter your email.')
+      }
+
+      if (!password) {
+        throw new Error('Please enter your password.')
+      }
+
+      const response = await postJson<LoginResponse, { email: string; password: string }>(
+        '/api/v1/auth/login',
+        {
+          email: normalizedEmail,
+          password,
+        },
+      )
+
+      setAccessToken(response.accessToken, remember ? 'local' : 'session')
+      navigate('/dashboard')
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Login failed.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -44,19 +95,31 @@ export default function SignIn() {
               <img src={logo} alt="Hochschule Mainz" className="h-36 mx-auto" />
             </Link>
 
-            <h2 className="text-2xl font-bold text-brand-dark mb-1">Sign In</h2>
-            <p className="text-sm text-brand-muted mb-8">Enter your university credentials to continue.</p>
+            <h2 className="text-2xl font-bold text-brand-dark mb-1">{t.signIn}</h2>
+            <p className="text-sm text-brand-muted mb-8">{t.signInSubtitle}</p>
 
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <div>
                 <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Email / University ID</label>
-                <input type="text" className="input-field" placeholder="name@hs-mainz.de" />
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="name@hs-mainz.de"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
               </div>
 
               <div>
-                <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Password</label>
+                <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">{t.password}</label>
                 <div className="relative">
-                  <input type={showPw ? 'text' : 'password'} className="input-field pr-10" placeholder="••••••••" />
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    className="input-field pr-10"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                  />
                   <button
                     type="button"
                     onClick={() => setShowPw(p => !p)}
@@ -75,18 +138,21 @@ export default function SignIn() {
                     onChange={e => setRemember(e.target.checked)}
                     className="w-4 h-4 accent-brand-dark"
                   />
-                  <span className="text-brand-muted text-xs">Remember me</span>
+                  <span className="text-brand-muted text-xs">{t.rememberMe}</span>
                 </label>
-                <a href="#" className="text-xs text-brand-primary hover:underline">Forgot password?</a>
+                <a href="#" className="text-xs text-brand-primary hover:underline">{t.forgotPassword}</a>
               </div>
 
-              <button type="submit" className="btn-primary w-full">Sign In</button>
+              {error && <p className="text-xs text-red-600">{error}</p>}
+              <button type="submit" className="btn-primary w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Signing In...' : t.signIn}
+              </button>
             </form>
 
             {/* Divider */}
             <div className="relative flex items-center my-6">
               <div className="flex-1 border-t border-brand-border" />
-              <span className="mx-3 text-xs text-brand-muted">or</span>
+              <span className="mx-3 text-xs text-brand-muted">{t.or}</span>
               <div className="flex-1 border-t border-brand-border" />
             </div>
 
@@ -102,8 +168,8 @@ export default function SignIn() {
             </div>
 
             <p className="text-xs text-center text-brand-muted">
-              Don't have an account?{' '}
-              <Link to="/signup" className="text-brand-dark font-semibold hover:underline">Register your ID</Link>
+              {t.noAccountYet}{' '}
+              <Link to="/signup" className="text-brand-dark font-semibold hover:underline">{t.signUp}</Link>
             </p>
           </div>
         </div>

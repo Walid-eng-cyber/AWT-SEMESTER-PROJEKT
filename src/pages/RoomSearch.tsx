@@ -5,6 +5,7 @@ import Sidebar from '../components/layout/Sidebar'
 import Footer from '../components/layout/Footer'
 import MobileBottomNav from '../components/layout/MobileBottomNav'
 import { MapPin, Users, Monitor, Speaker, Wifi, ChevronRight, SlidersHorizontal, X } from 'lucide-react'
+import { usePreferences } from '../preferences/PreferencesContext'
 
 type Room = {
   id: string
@@ -38,6 +39,7 @@ const equipmentIcons: Record<string, React.ReactNode> = {
 }
 
 export default function RoomSearch() {
+  const { t } = usePreferences()
   const [building, setBuilding] = useState('all')
   const [roomType, setRoomType] = useState<string[]>([])
   const [capacityRange, setCapacityRange] = useState('all')
@@ -65,11 +67,11 @@ export default function RoomSearch() {
           {/* Header */}
           <div className="bg-white border-b border-brand-border px-4 sm:px-6 lg:px-8 py-6">
             <p className="text-xs text-brand-muted mb-2">
-              Campus &rsaquo; Building A &rsaquo; <span className="text-brand-dark font-medium">Room Search</span>
+              Campus &rsaquo; Building A &rsaquo; <span className="text-brand-dark font-medium">{t.roomSearch}</span>
             </p>
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 sm:gap-4">
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-brand-dark">Explore Spatial Assets</h1>
+                <h1 className="text-xl sm:text-2xl font-bold text-brand-dark">{t.exploreRooms}</h1>
                 <p className="text-sm text-brand-muted mt-1">
                   Curated learning environments optimized for academic excellence and collaborative research.
                 </p>
@@ -79,9 +81,9 @@ export default function RoomSearch() {
                   onClick={() => setFiltersOpen(o => !o)}
                   className="lg:hidden btn-outline text-xs py-2 px-3 flex items-center gap-1.5"
                 >
-                  <SlidersHorizontal size={14} /> Filters
+                  <SlidersHorizontal size={14} /> {t.filters}
                 </button>
-                <span className="text-sm font-semibold text-brand-dark shrink-0">{visible.length} Rooms</span>
+                <span className="text-sm font-semibold text-brand-dark shrink-0">{visible.length} {t.rooms}</span>
               </div>
             </div>
           </div>
@@ -102,7 +104,7 @@ export default function RoomSearch() {
               <div className="flex items-center justify-between mb-5">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal size={14} className="text-brand-muted" />
-                  <span className="text-xs font-semibold uppercase tracking-wide text-brand-dark">Filters</span>
+                  <span className="text-xs font-semibold uppercase tracking-wide text-brand-dark">{t.filters}</span>
                 </div>
                 <button onClick={() => setFiltersOpen(false)} className="lg:hidden text-brand-muted hover:text-brand-dark">
                   <X size={18} />
@@ -111,13 +113,13 @@ export default function RoomSearch() {
 
               {/* Building */}
               <div className="mb-6">
-                <label className="block text-xs font-semibold text-brand-dark mb-2 uppercase tracking-wide">Building</label>
+                <label className="block text-xs font-semibold text-brand-dark mb-2 uppercase tracking-wide">{t.building}</label>
                 <select
                   value={building}
                   onChange={e => setBuilding(e.target.value)}
                   className="input-field text-xs py-2"
                 >
-                  <option value="all">All Main Buildings</option>
+                  <option value="all">{t.allMainBuildings}</option>
                   <option value="building a">Building A</option>
                   <option value="building b">Building B</option>
                   <option value="building c">Building C</option>
@@ -126,7 +128,7 @@ export default function RoomSearch() {
 
               {/* Room Type */}
               <div className="mb-6">
-                <label className="block text-xs font-semibold text-brand-dark mb-2 uppercase tracking-wide">Room Type</label>
+                <label className="block text-xs font-semibold text-brand-dark mb-2 uppercase tracking-wide">{t.roomType}</label>
                 <div className="flex flex-wrap gap-2">
                   {['Seminar', 'Lab', 'Lecture', 'Studio'].map(t => (
                     <button
@@ -142,8 +144,8 @@ export default function RoomSearch() {
 
               {/* Capacity */}
               <div className="mb-6">
-                <label className="block text-xs font-semibold text-brand-dark mb-2 uppercase tracking-wide">Capacity</label>
-                {[['all', 'Any'], ['1-20', '1 – 20 seats'], ['20-50', '20 – 50 seats'], ['50+', '50+ seats']].map(([val, label]) => (
+                <label className="block text-xs font-semibold text-brand-dark mb-2 uppercase tracking-wide">{t.capacity}</label>
+                {[['all', t.any], ['1-20', '1 - 20 seats'], ['20-50', '20 - 50 seats'], ['50+', '50+ seats']].map(([val, label]) => (
                   <label key={val} className="flex items-center gap-2 mb-2 cursor-pointer">
                     <input type="radio" name="cap" value={val} checked={capacityRange === val} onChange={() => setCapacityRange(val)} className="accent-brand-dark" />
                     <span className="text-xs text-brand-muted">{label}</span>
@@ -153,7 +155,7 @@ export default function RoomSearch() {
 
               {/* Equipment */}
               <div className="mb-6">
-                <label className="block text-xs font-semibold text-brand-dark mb-2 uppercase tracking-wide">Equipment</label>
+                <label className="block text-xs font-semibold text-brand-dark mb-2 uppercase tracking-wide">{t.equipment}</label>
                 {['Smartboard', 'Projector', 'Pro Audio', 'Whiteboard'].map(eq => (
                   <label key={eq} className="flex items-center gap-2 mb-2 cursor-pointer">
                     <input type="checkbox" className="accent-brand-dark" />
@@ -162,7 +164,7 @@ export default function RoomSearch() {
                 ))}
               </div>
 
-              <button className="btn-primary w-full text-xs py-2" onClick={() => setFiltersOpen(false)}>Apply Filters</button>
+              <button className="btn-primary w-full text-xs py-2" onClick={() => setFiltersOpen(false)}>{t.applyFilters}</button>
             </aside>
 
             {/* Results */}
@@ -178,15 +180,15 @@ export default function RoomSearch() {
                           <p className="text-sm font-semibold text-brand-dark mt-0.5">{room.name}</p>
                         </div>
                         {room.status === 'available'
-                          ? <span className="badge-available">Available</span>
-                          : <span className="badge-inuse">Next: {room.nextAvail}</span>
+                          ? <span className="badge-available">{t.available}</span>
+                          : <span className="badge-inuse">{t.next}: {room.nextAvail}</span>
                         }
                       </div>
                     </div>
 
                     <div className="p-5 flex-1 flex flex-col">
                       <div className="flex items-center gap-4 text-xs text-brand-muted mb-4">
-                        <span className="flex items-center gap-1"><Users size={12} /> {room.seats} Seats</span>
+                        <span className="flex items-center gap-1"><Users size={12} /> {room.seats} {t.seats}</span>
                         <span className="flex items-center gap-1"><MapPin size={12} /> {room.floor}</span>
                       </div>
 
@@ -203,7 +205,7 @@ export default function RoomSearch() {
                           to={`/rooms/${room.id}`}
                           className="btn-primary w-full text-xs py-2"
                         >
-                          Book Room <ChevronRight size={14} />
+                          {t.bookRoom} <ChevronRight size={14} />
                         </Link>
                       </div>
                     </div>
@@ -213,13 +215,13 @@ export default function RoomSearch() {
 
               {visible.length === 0 && (
                 <div className="text-center py-16 text-brand-muted text-sm">
-                  No rooms match your filters.
+                  {t.noRoomsMatchFilters}
                 </div>
               )}
 
               {visible.length > 0 && (
                 <div className="text-center mt-8">
-                  <button className="btn-outline text-xs">Load More Spaces</button>
+                  <button className="btn-outline text-xs">{t.loadMoreSpaces}</button>
                 </div>
               )}
             </div>
