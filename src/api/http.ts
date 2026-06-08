@@ -2,6 +2,10 @@ type TokenStorage = 'local' | 'session'
 
 const ACCESS_TOKEN_KEY = 'awt_access_token'
 
+export function getAccessToken() {
+  return window.sessionStorage.getItem(ACCESS_TOKEN_KEY) ?? window.localStorage.getItem(ACCESS_TOKEN_KEY)
+}
+
 export async function postJson<TResponse, TBody>(url: string, body: TBody): Promise<TResponse> {
   let response: Response
   try {

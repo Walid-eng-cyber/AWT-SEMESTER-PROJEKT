@@ -8,6 +8,8 @@ import RoomDetails from './pages/RoomDetails'
 import MyBookings from './pages/MyBookings'
 import SettingsPage from './pages/Settings'
 import EventsPage from './pages/Events'
+import AssistantPage from './pages/Assistant'
+import FloatingAssistant from './components/assistant/FloatingAssistant'
 
 export default function App() {
   return (
@@ -22,9 +24,12 @@ export default function App() {
         <Route path="/bookings" element={<MyBookings />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/assistant" element={<AssistantPage />} />
+        <Route path="/support" element={<AssistantPage />} />
         {/* Fallback */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <FloatingAssistant />
     </BrowserRouter>
   )
 }

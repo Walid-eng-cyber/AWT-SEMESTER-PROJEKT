@@ -41,10 +41,10 @@ export default function Sidebar() {
           <PlusCircle size={16} />
           {t.newBooking}
         </Link>
-        <a href="#" className="sidebar-link">
+        <Link to="/support" className="sidebar-link">
           <HelpCircle size={16} />
           {t.help}
-        </a>
+        </Link>
         <Link to="/" className="sidebar-link">
           <LogOut size={16} />
           {t.logOut}
