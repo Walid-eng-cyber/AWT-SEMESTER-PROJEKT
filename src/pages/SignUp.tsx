@@ -1,12 +1,79 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, ShieldCheck, Clock } from 'lucide-react'
 import logo from '../assets/logo.png'
+import { postJson } from '../api/http'
+
+interface RegisterResponse {
+  message: string
+  user: {
+    id: string
+    email: string
+    fullName: string
+    role: 'student' | 'staff' | 'admin'
+  }
+}
 
 export default function SignUp() {
+  const navigate = useNavigate()
   const [showPw, setShowPw] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [agreed, setAgreed] = useState(false)
+  const [fullName, setFullName] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false)
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+
+    const normalizedEmail = email.trim().toLowerCase()
+    if (!fullName.trim()) {
+      setError('Please enter your full name.')
+      return
+    }
+
+    if (!normalizedEmail) {
+      setError('Please enter your university email.')
+      return
+    }
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long.')
+      return
+    }
+
+    if (password !== confirmPassword) {
+      setError('Password and confirmation do not match.')
+      return
+    }
+
+    if (!agreed) {
+      setError('Please accept the terms to continue.')
+      return
+    }
+
+    setIsSubmitting(true)
+    try {
+      await postJson<RegisterResponse, { fullName: string; email: string; password: string }>(
+        '/api/v1/auth/register',
+        {
+          fullName: fullName.trim(),
+          email: normalizedEmail,
+          password,
+        },
+      )
+      setShowSuccessPopup(true)
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Account creation failed.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -66,15 +133,15 @@ export default function SignUp() {
             <h2 className="text-2xl font-bold text-brand-dark mb-1">Create Account</h2>
             <p className="text-sm text-brand-muted mb-8">Enter your details to register for the Room Portal.</p>
 
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <div>
                 <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Full Name</label>
-                <input type="text" className="input-field" placeholder="e.g. Johannes Gutenberg" />
+                <input type="text" className="input-field" placeholder="e.g. Johannes Gutenberg" value={fullName} onChange={e => setFullName(e.target.value)} />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">University Email</label>
-                <input type="email" className="input-field" placeholder="student@hs-mainz.de" />
+                <input type="email" className="input-field" placeholder="student@hs-mainz.de" value={email} onChange={e => setEmail(e.target.value)} />
               </div>
 
               <div>
@@ -86,7 +153,7 @@ export default function SignUp() {
                 <div>
                   <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Password</label>
                   <div className="relative">
-                    <input type={showPw ? 'text' : 'password'} className="input-field pr-10" placeholder="••••••••" />
+                    <input type={showPw ? 'text' : 'password'} className="input-field pr-10" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} />
                     <button type="button" onClick={() => setShowPw(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-dark">
                       {showPw ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
@@ -95,13 +162,15 @@ export default function SignUp() {
                 <div>
                   <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Confirm</label>
                   <div className="relative">
-                    <input type={showConfirm ? 'text' : 'password'} className="input-field pr-10" placeholder="••••••••" />
+                    <input type={showConfirm ? 'text' : 'password'} className="input-field pr-10" placeholder="••••••••" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} />
                     <button type="button" onClick={() => setShowConfirm(p => !p)} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-dark">
                       {showConfirm ? <EyeOff size={14} /> : <Eye size={14} />}
                     </button>
                   </div>
                 </div>
               </div>
+
+              {error && <p className="text-xs text-red-600">{error}</p>}
 
               <label className="flex items-start gap-2.5 cursor-pointer">
                 <input
@@ -118,8 +187,8 @@ export default function SignUp() {
                 </span>
               </label>
 
-              <button type="submit" disabled={!agreed} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
-                Create Account
+              <button type="submit" disabled={!agreed || isSubmitting} className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed">
+                {isSubmitting ? 'Creating Account...' : 'Create Account'}
               </button>
             </form>
 
@@ -140,6 +209,25 @@ export default function SignUp() {
           <a href="#" className="hover:text-gray-300">Contact</a>
         </div>
       </div>
+
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-md rounded-xl bg-white shadow-2xl border border-brand-border p-6">
+            <h3 className="text-lg font-bold text-brand-dark">Account Created</h3>
+            <p className="text-sm text-brand-muted mt-2">
+              Your account has been created 100% successfully. You can now sign in with your new credentials.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button className="btn-outline text-xs py-2 px-3" onClick={() => setShowSuccessPopup(false)}>
+                Stay Here
+              </button>
+              <button className="btn-primary text-xs py-2 px-3" onClick={() => navigate('/signin')}>
+                Go to Sign In
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
