@@ -1,12 +1,10 @@
-import type { Notification, PagedResponse } from '../contracts'
+import type { Notification } from '../contracts'
 import { endpoints } from '../endpoints'
 import { getJson, postJson } from '../http'
 
-export function listNotifications(unreadOnly = false, page = 1, pageSize = 20): Promise<PagedResponse<Notification>> {
-  return getJson<PagedResponse<Notification>>(endpoints.notifications.list, {
-    unreadOnly,
-    page,
-    pageSize,
+export function listNotifications(unreadOnly = false): Promise<Notification[]> {
+  return getJson<Notification[]>(endpoints.notifications.list, {
+    read: unreadOnly ? false : undefined,
   })
 }
 

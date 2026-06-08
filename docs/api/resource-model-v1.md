@@ -14,8 +14,8 @@
   - `POST /api/v1/auth/refresh`
 
 ### Roles
-- `student`: creates and manages own bookings, reads rooms and availability.
-- `staff`: has student capabilities plus booking confirmation operations.
+- `student`: creates and manages own appointments, reads rooms and availability.
+- `staff`: has student capabilities plus appointment confirmation operations.
 - `admin`: full access including user and room administration.
 
 ### RBAC Matrix (v1)
@@ -25,9 +25,9 @@
 - Rooms
   - `GET /rooms`, `GET /rooms/{roomId}`, `GET /rooms/available`: student, staff, admin
   - `POST /rooms`, `PATCH /rooms/{roomId}`: admin
-- Bookings
-  - `GET /bookings`, `GET /bookings/{bookingId}`, `POST /bookings`, `POST /bookings/{bookingId}/cancel`: student, staff, admin
-  - `POST /bookings/{bookingId}/confirm`: staff, admin
+- Appointments
+  - `GET /appointments`, `GET /appointments/{appointmentId}`, `POST /appointments`, `POST /appointments/{appointmentId}/cancel`: student, staff, admin
+  - `POST /appointments/{appointmentId}/confirm`: staff, admin
 - Availability
   - `GET /availability`: student, staff, admin
 - Notifications
@@ -41,7 +41,7 @@ Represents a person account in the system.
 - Profile fields: `fullName`
 - Access fields: `role`, `status`
 - Relationships:
-  - One user can own many bookings.
+  - One user can own many appointments.
   - One user can receive many notifications.
 
 ### Room
@@ -51,19 +51,19 @@ Represents a bookable physical space.
 - Capacity fields: `seats`
 - Classification fields: `type`, `equipment`, `status`
 - Relationships:
-  - One room can have many bookings over time.
-  - Availability is derived from room + bookings.
+  - One room can have many appointments over time.
+  - Availability is derived from room + appointments.
 
-### Booking
+### Appointment
 Represents a reservation of a room for a time range.
 - Identity fields: `id`
 - Foreign keys: `roomId`, `userId`
 - Schedule fields: `startsAt`, `endsAt`
 - Business fields: `purpose`, `status`, `createdAt`
 - Relationships:
-  - Each booking belongs to one room and one user.
+  - Each appointment belongs to one room and one user.
 
-#### Booking lifecycle rules
+#### Appointment lifecycle rules
 - Create:
   - Initial status is `pending`.
   - `endsAt` must be strictly greater than `startsAt`.
@@ -72,10 +72,10 @@ Represents a reservation of a room for a time range.
   - Allowed only for `staff` and `admin`.
   - Transition allowed only from `pending` to `confirmed`.
 - Cancel:
-  - Allowed for booking owner, `staff`, or `admin`.
+  - Allowed for appointment owner, `staff`, or `admin`.
   - Transitions allowed from `pending` or `confirmed` to `cancelled`.
 - Conflict checks:
-  - Booking is rejected when same room has overlapping non-cancelled booking.
+  - Appointment is rejected when same room has overlapping non-cancelled appointment.
   - Overlap rule: `[a.start, a.end)` overlaps `[b.start, b.end)` iff `a.start < b.end` and `b.start < a.end`.
 
 ### AvailabilityWindow
@@ -84,7 +84,7 @@ Read-model resource for scheduling decisions.
 - Window fields: `from`, `to`
 - Projection fields: `slots[]` with `state` in `free|occupied|maintenance`
 - Relationships:
-  - Computed from room status and bookings.
+  - Computed from room status and appointments.
 
 ### Notification
 Represents an in-app user message.
@@ -115,12 +115,12 @@ Represents login/refresh response payload.
 - `PATCH /api/v1/rooms/{roomId}`
 - `GET /api/v1/rooms/available`
 
-### Bookings
-- `GET /api/v1/bookings`
-- `POST /api/v1/bookings`
-- `GET /api/v1/bookings/{bookingId}`
-- `POST /api/v1/bookings/{bookingId}/confirm`
-- `POST /api/v1/bookings/{bookingId}/cancel`
+### Appointments
+- `GET /api/v1/appointments`
+- `POST /api/v1/appointments`
+- `GET /api/v1/appointments/{appointmentId}`
+- `POST /api/v1/appointments/{appointmentId}/confirm`
+- `POST /api/v1/appointments/{appointmentId}/cancel`
 
 ### Availability
 - `GET /api/v1/availability`
@@ -133,19 +133,19 @@ Represents login/refresh response payload.
 - Pagination: `page`, `pageSize`
 - Filtering: query params per resource (`building`, `type`, `status`, time window)
 - Error model: RFC7807-like `ProblemDetails`
-- Idempotency: required `Idempotency-Key` for booking creation
+- Idempotency: required `Idempotency-Key` for appointment creation
 
 ## State Transitions
-- Booking transitions:
+- Appointment transitions:
   - `pending -> confirmed`
   - `pending|confirmed -> cancelled`
 - Notification transitions:
   - `read: false -> true`
 
-## Booking Error Semantics
+## Appointment Error Semantics
 - `400 Bad Request`: invalid time range (`endsAt <= startsAt`) or malformed timestamps.
-- `403 Forbidden`: role/ownership violation (for example student confirms booking not allowed).
-- `409 Conflict`: overlapping booking or invalid lifecycle transition.
+- `403 Forbidden`: role/ownership violation (for example student confirms appointment not allowed).
+- `409 Conflict`: overlapping appointment or invalid lifecycle transition.
 
 ## Compatibility Rules
 - Do not remove or rename fields in v1 once released.

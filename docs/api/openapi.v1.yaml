@@ -260,6 +260,48 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
+  /appointments/{id}/confirm:
+    post:
+      tags: [Appointments]
+      summary: Confirm appointment
+      description: Transition allowed only from DRAFT to CONFIRMED.
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Appointment confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentWithRoom'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /appointments/{id}/cancel:
+    post:
+      tags: [Appointments]
+      summary: Cancel appointment
+      description: Transition allowed from DRAFT or CONFIRMED to CANCELLED.
+      parameters:
+        - $ref: '#/components/parameters/AppointmentId'
+      responses:
+        '200':
+          description: Appointment cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppointmentWithRoom'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
   /graphql:
     post:
       tags: [GraphQL]
@@ -324,6 +366,12 @@ components:
             $ref: '#/components/schemas/ApiError'
     Conflict:
       description: Resource conflict (for example overlapping appointment)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Forbidden:
+      description: Access denied for current role or ownership
       content:
         application/json:
           schema:

@@ -49,6 +49,23 @@ Health-Endpunkt:
 GraphQL Endpoint:
 - POST http://localhost:4000/graphql
 
+## Realtime (WebSocket)
+WebSocket Endpoint:
+- ws://localhost:4000/ws
+
+Eventtypen:
+- room.status.changed
+- appointment.created
+- appointment.updated
+- appointment.deleted
+
+Payload-Metadaten (alle Events):
+- eventVersion: 1
+- schemaVersion: v1
+
+Hinweis:
+- Bei Verbindung sendet der Server einmalig `system.connected`.
+
 Beispiel-Query: freie Raeume im Zeitfenster
 
 ```graphql

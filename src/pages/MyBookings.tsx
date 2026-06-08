@@ -1,30 +1,26 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Sidebar from '../components/layout/Sidebar'
 import Footer from '../components/layout/Footer'
 import MobileBottomNav from '../components/layout/MobileBottomNav'
-import { Search, Calendar, Clock, MapPin, RefreshCw } from 'lucide-react'
+import { Search, Calendar, Clock, MapPin, RefreshCw, ShieldCheck } from 'lucide-react'
+import { endpoints } from '../api/endpoints'
+import { ApiError, getAccessTokenClaims, getJson } from '../api/http'
+import { cancelBooking, confirmBooking, listBookings } from '../api/services/bookingsService'
 
-type Booking = {
+type UiBooking = {
   id: string
+  purpose: string
   room: string
   location: string
   date: string
   time: string
+  roomId: string
+  startsAt: string
+  endsAt: string
   status: 'confirmed' | 'pending' | 'cancelled'
 }
-
-const upcomingBookings: Booking[] = [
-  { id: '1', room: 'Lichtstudio A.04', location: 'Design Faculty · Floor 2', date: 'Oct 24, 2023', time: '09:00 – 11:30', status: 'confirmed' },
-  { id: '2', room: 'Quiet Zone 2.12', location: 'Central Library · South Wing', date: 'Oct 26, 2023', time: '14:00 – 18:00', status: 'pending' },
-]
-
-const pastBookings: Booking[] = [
-  { id: '3', room: 'Auditorium Max', location: 'Main Building · Level 0', date: 'Nov 02, 2023', time: '10:00 – 12:00', status: 'cancelled' },
-  { id: '4', room: 'Studio B-402', location: 'Design Wing · Level 4', date: 'Oct 18, 2023', time: '13:00 – 15:00', status: 'confirmed' },
-  { id: '5', room: 'Engineering Lab B.301', location: 'Building B · Level 3', date: 'Oct 15, 2023', time: '09:00 – 11:00', status: 'confirmed' },
-]
 
 const statusClass: Record<string, string> = {
   confirmed: 'badge-confirmed',
@@ -32,7 +28,7 @@ const statusClass: Record<string, string> = {
   cancelled: 'badge-cancelled',
 }
 
-function BookingRow({ b }: { b: Booking }) {
+function BookingRow({ b, onCancel }: { b: UiBooking; onCancel: (id: string) => void }) {
   return (
     <tr className="hidden sm:table-row border-b border-brand-border hover:bg-brand-surface/50 transition-colors">
       <td className="px-4 py-4">
@@ -54,16 +50,16 @@ function BookingRow({ b }: { b: Booking }) {
             <RefreshCw size={12} /> Rebook
           </Link>
         ) : b.status === 'pending' ? (
-          <button className="text-xs font-semibold text-red-600 hover:underline">Cancel</button>
+          <button className="text-xs font-semibold text-red-600 hover:underline" onClick={() => onCancel(b.id)}>Cancel</button>
         ) : (
-          <Link to={`/rooms/${b.id}`} className="text-xs font-semibold text-brand-dark hover:underline">View</Link>
+          <Link to={`/rooms/${b.roomId}`} className="text-xs font-semibold text-brand-dark hover:underline">View</Link>
         )}
       </td>
     </tr>
   )
 }
 
-function BookingCard({ b }: { b: Booking }) {
+function BookingCard({ b, onCancel }: { b: UiBooking; onCancel: (id: string) => void }) {
   return (
     <div className="sm:hidden border-b border-brand-border p-4 hover:bg-brand-surface/50 transition-colors">
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -83,9 +79,9 @@ function BookingCard({ b }: { b: Booking }) {
             <RefreshCw size={12} /> Rebook
           </Link>
         ) : b.status === 'pending' ? (
-          <button className="text-xs font-semibold text-red-600 hover:underline">Cancel</button>
+          <button className="text-xs font-semibold text-red-600 hover:underline" onClick={() => onCancel(b.id)}>Cancel</button>
         ) : (
-          <Link to={`/rooms/${b.id}`} className="text-xs font-semibold text-brand-dark hover:underline">View</Link>
+          <Link to={`/rooms/${b.roomId}`} className="text-xs font-semibold text-brand-dark hover:underline">View</Link>
         )}
       </div>
     </div>
@@ -95,11 +91,151 @@ function BookingCard({ b }: { b: Booking }) {
 export default function MyBookings() {
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
   const [query, setQuery] = useState('')
+  const [bookings, setBookings] = useState<UiBooking[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [processingBookingId, setProcessingBookingId] = useState<string | null>(null)
 
-  const bookings = tab === 'upcoming' ? upcomingBookings : pastBookings
-  const filtered = bookings.filter(b =>
+  const actorRole = useMemo(() => getAccessTokenClaims()?.role ?? 'student', [])
+  const canModerateReservations = actorRole === 'admin' || actorRole === 'staff'
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadBookings() {
+      setLoading(true)
+      setError(null)
+
+      try {
+        const [bookingsRes, rooms] = await Promise.all([
+          listBookings(),
+          getJson<Array<{ id: string; name: string; location: string }>>(endpoints.rooms.list),
+        ])
+
+        if (cancelled) return
+
+        const roomById = rooms.reduce<Record<string, { name: string; location: string }>>((acc, room) => {
+          acc[room.id] = { name: room.name, location: room.location }
+          return acc
+        }, {})
+
+        setBookings(bookingsRes.data.map((booking) => {
+          const starts = new Date(booking.startsAt)
+          const ends = new Date(booking.endsAt)
+          const room = roomById[booking.roomId]
+
+          return {
+            id: booking.id,
+            purpose: booking.purpose,
+            roomId: booking.roomId,
+            startsAt: booking.startsAt,
+            endsAt: booking.endsAt,
+            room: room?.name ?? booking.roomId,
+            location: room?.location ?? 'Unknown location',
+            date: starts.toLocaleDateString(undefined, { month: 'short', day: '2-digit', year: 'numeric' }),
+            time: `${starts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - ${ends.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+            status: booking.status,
+          }
+        }))
+      } catch (loadError) {
+        if (cancelled) return
+        setError(loadError instanceof Error ? loadError.message : 'Failed to load bookings.')
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    void loadBookings()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function handleCancel(bookingId: string) {
+    setError(null)
+    setProcessingBookingId(bookingId)
+
+    try {
+      const updated = await cancelBooking(bookingId)
+      setBookings((prev) => prev.map((booking) => (
+        booking.id === updated.id ? { ...booking, status: updated.status } : booking
+      )))
+    } catch (cancelError) {
+      if (cancelError instanceof ApiError) {
+        setError(cancelError.message)
+        return
+      }
+      setError(cancelError instanceof Error ? cancelError.message : 'Failed to cancel booking.')
+    } finally {
+      setProcessingBookingId(null)
+    }
+  }
+
+  async function handleConfirm(bookingId: string) {
+    setError(null)
+    setProcessingBookingId(bookingId)
+
+    try {
+      const updated = await confirmBooking(bookingId)
+      setBookings((prev) => prev.map((booking) => (
+        booking.id === updated.id ? { ...booking, status: updated.status } : booking
+      )))
+    } catch (confirmError) {
+      if (confirmError instanceof ApiError) {
+        setError(confirmError.message)
+        return
+      }
+      setError(confirmError instanceof Error ? confirmError.message : 'Failed to confirm booking.')
+    } finally {
+      setProcessingBookingId(null)
+    }
+  }
+
+  const filteredByTab = useMemo(() => {
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    const dayBoundary = startOfToday.getTime()
+
+    return bookings.filter((booking) => {
+      const startsAt = new Date(booking.startsAt).getTime()
+      return tab === 'upcoming' ? startsAt >= dayBoundary : startsAt < dayBoundary
+    })
+  }, [bookings, tab])
+
+  const filtered = filteredByTab.filter(b =>
     b.room.toLowerCase().includes(query.toLowerCase()) ||
     b.location.toLowerCase().includes(query.toLowerCase())
+  )
+
+  const upcomingCount = useMemo(() => {
+    const now = Date.now()
+    return bookings.filter((booking) => new Date(booking.startsAt).getTime() >= now).length
+  }, [bookings])
+
+  const reservedHours = useMemo(() => {
+    const total = bookings.reduce((sum, booking) => {
+      const starts = new Date(booking.startsAt).getTime()
+      const ends = new Date(booking.endsAt).getTime()
+      return Number.isFinite(ends) ? sum + Math.max(0, ends - starts) : sum
+    }, 0)
+    return (total / (1000 * 60 * 60)).toFixed(1)
+  }, [bookings])
+
+  const nextReservation = useMemo(() => {
+    const now = Date.now()
+    return bookings
+      .filter((booking) => new Date(booking.startsAt).getTime() >= now)
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime())[0]
+  }, [bookings])
+
+  const pendingReservations = useMemo(
+    () => bookings
+      .filter((booking) => booking.status === 'pending')
+      .sort((a, b) => new Date(a.startsAt).getTime() - new Date(b.startsAt).getTime()),
+    [bookings],
   )
 
   return (
@@ -123,20 +259,65 @@ export default function MyBookings() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             <div className="card p-5 sm:col-span-1">
               <p className="text-xs text-brand-muted uppercase tracking-wide mb-1">Upcoming This Week</p>
-              <p className="text-3xl font-bold text-brand-dark">02</p>
+              <p className="text-3xl font-bold text-brand-dark">{upcomingCount.toString().padStart(2, '0')}</p>
             </div>
             <div className="card p-5">
               <p className="text-xs text-brand-muted uppercase tracking-wide mb-1">Hours Reserved</p>
-              <p className="text-3xl font-bold text-brand-dark">12.5</p>
+              <p className="text-3xl font-bold text-brand-dark">{reservedHours}</p>
             </div>
             <div className="card p-5 bg-brand-dark text-white">
               <p className="text-xs text-brand-primary uppercase tracking-wide mb-1">Next Reservation</p>
-              <p className="text-sm font-semibold text-white mt-1">Lichtstudio</p>
-              <p className="text-xs text-gray-400">Tomorrow at 09:00</p>
+              <p className="text-sm font-semibold text-white mt-1">{nextReservation?.room ?? 'No upcoming reservation'}</p>
+              <p className="text-xs text-gray-400">{nextReservation?.date ? `${nextReservation.date} · ${nextReservation.time}` : 'Create one in Explore Rooms'}</p>
             </div>
           </div>
 
+          {canModerateReservations && (
+            <div className="card mb-8">
+              <div className="px-5 py-4 border-b border-brand-border flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-brand-primary" />
+                  <h2 className="text-sm font-semibold text-brand-dark">Reservation Moderation</h2>
+                </div>
+                <span className="text-xs text-brand-muted">{pendingReservations.length} pending</span>
+              </div>
+
+              {pendingReservations.length === 0 ? (
+                <p className="px-5 py-5 text-sm text-brand-muted">No pending reservation requests.</p>
+              ) : (
+                <div className="divide-y divide-brand-border">
+                  {pendingReservations.map((booking) => (
+                    <div key={booking.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-brand-dark">{booking.room}</p>
+                        <p className="text-xs text-brand-muted mt-1">{booking.date} · {booking.time}</p>
+                        <p className="text-xs text-brand-muted mt-1">Purpose: {booking.purpose}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="btn-primary text-xs py-2 px-3"
+                          onClick={() => void handleConfirm(booking.id)}
+                          disabled={processingBookingId === booking.id}
+                        >
+                          {processingBookingId === booking.id ? 'Processing...' : 'Confirm'}
+                        </button>
+                        <button
+                          className="btn-outline text-xs py-2 px-3"
+                          onClick={() => void handleCancel(booking.id)}
+                          disabled={processingBookingId === booking.id}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="card">
+            {error && <p className="px-5 pt-4 text-sm text-red-600">{error}</p>}
             {/* Toolbar */}
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border">
               {/* Tabs */}
@@ -178,10 +359,10 @@ export default function MyBookings() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(b => <BookingRow key={b.id} b={b} />)}
+                  {filtered.map(b => <BookingRow key={b.id} b={b} onCancel={handleCancel} />)}
                   {filtered.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="text-center py-12 text-brand-muted text-sm">No bookings found.</td>
+                      <td colSpan={5} className="text-center py-12 text-brand-muted text-sm">{loading ? 'Loading bookings...' : 'No bookings found.'}</td>
                     </tr>
                   )}
                 </tbody>
@@ -190,9 +371,9 @@ export default function MyBookings() {
 
             {/* Mobile card list */}
             <div className="sm:hidden">
-              {filtered.map(b => <BookingCard key={b.id} b={b} />)}
+              {filtered.map(b => <BookingCard key={b.id} b={b} onCancel={handleCancel} />)}
               {filtered.length === 0 && (
-                <p className="text-center py-12 text-brand-muted text-sm">No bookings found.</p>
+                <p className="text-center py-12 text-brand-muted text-sm">{loading ? 'Loading bookings...' : 'No bookings found.'}</p>
               )}
             </div>
           </div>

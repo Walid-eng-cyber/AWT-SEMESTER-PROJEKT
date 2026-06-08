@@ -9,13 +9,15 @@ export const endpoints = {
     list: `${API_BASE}/rooms`,
     byId: (roomId: string) => `${API_BASE}/rooms/${roomId}`,
     available: `${API_BASE}/rooms/available`,
+    update: (roomId: string) => `${API_BASE}/rooms/${roomId}`,
+    setStatus: (roomId: string) => `${API_BASE}/rooms/${roomId}/status`,
   },
-  bookings: {
-    list: `${API_BASE}/bookings`,
-    create: `${API_BASE}/bookings`,
-    byId: (bookingId: string) => `${API_BASE}/bookings/${bookingId}`,
-    confirm: (bookingId: string) => `${API_BASE}/bookings/${bookingId}/confirm`,
-    cancel: (bookingId: string) => `${API_BASE}/bookings/${bookingId}/cancel`,
+  appointments: {
+    list: `${API_BASE}/appointments`,
+    create: `${API_BASE}/appointments`,
+    byId: (bookingId: string) => `${API_BASE}/appointments/${bookingId}`,
+    confirm: (bookingId: string) => `${API_BASE}/appointments/${bookingId}/confirm`,
+    cancel: (bookingId: string) => `${API_BASE}/appointments/${bookingId}/cancel`,
   },
   availability: {
     window: `${API_BASE}/availability`,

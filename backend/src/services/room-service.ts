@@ -1,7 +1,9 @@
 import { RoomStatus, Prisma } from '@prisma/client'
 import { z } from 'zod'
+import type { AuthenticatedUser } from '../auth/types.js'
 import { prisma } from '../db/client.js'
 import { notFound } from '../lib/api-error.js'
+import { publishRealtimeEvent } from '../realtime/event-bus.js'
 
 export const roomStatusSchema = z.nativeEnum(RoomStatus)
 
@@ -59,12 +61,27 @@ export async function updateRoom(roomId: string, input: z.infer<typeof updateRoo
   })
 }
 
-export async function setRoomStatus(roomId: string, status: RoomStatus) {
-  await getRoomById(roomId)
-  return prisma.room.update({
+export async function setRoomStatus(roomId: string, status: RoomStatus, actor: AuthenticatedUser) {
+  const current = await getRoomById(roomId)
+  const updated = await prisma.room.update({
     where: { id: roomId },
     data: { status },
   })
+
+  if (current.status !== updated.status) {
+    publishRealtimeEvent({
+      type: 'room.status.changed',
+      data: {
+        roomId: updated.id,
+        previousStatus: current.status,
+        status: updated.status,
+        name: updated.name,
+        location: updated.location,
+      },
+    })
+  }
+
+  return updated
 }
 
 export async function deleteRoom(roomId: string) {

@@ -19,3 +19,7 @@ export function notFound(message: string) {
 export function conflict(message: string) {
   return new ApiError(409, message)
 }
+
+export function forbidden(message: string) {
+  return new ApiError(403, message)
+}

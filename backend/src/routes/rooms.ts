@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { asyncHandler } from '../lib/async-handler.js'
+import { requireRole } from '../middleware/auth.js'
 import {
   createRoom,
   createRoomSchema,
@@ -26,25 +27,25 @@ roomsRouter.get('/rooms/:id', asyncHandler(async (req, res) => {
   res.status(200).json(room)
 }))
 
-roomsRouter.post('/rooms', asyncHandler(async (req, res) => {
+roomsRouter.post('/rooms', requireRole('admin'), asyncHandler(async (req, res) => {
   const payload = createRoomSchema.parse(req.body)
   const created = await createRoom(payload)
   res.status(201).json(created)
 }))
 
-roomsRouter.patch('/rooms/:id', asyncHandler(async (req, res) => {
+roomsRouter.patch('/rooms/:id', requireRole('staff', 'admin'), asyncHandler(async (req, res) => {
   const payload = updateRoomSchema.parse(req.body)
   const updated = await updateRoom(req.params.id, payload)
   res.status(200).json(updated)
 }))
 
-roomsRouter.patch('/rooms/:id/status', asyncHandler(async (req, res) => {
+roomsRouter.patch('/rooms/:id/status', requireRole('staff', 'admin'), asyncHandler(async (req, res) => {
   const payload = updateRoomStatusSchema.parse(req.body)
-  const updated = await setRoomStatus(req.params.id, payload.status)
+  const updated = await setRoomStatus(req.params.id, payload.status, req.auth!)
   res.status(200).json(updated)
 }))
 
-roomsRouter.delete('/rooms/:id', asyncHandler(async (req, res) => {
+roomsRouter.delete('/rooms/:id', requireRole('admin'), asyncHandler(async (req, res) => {
   await deleteRoom(req.params.id)
   res.status(204).send()
 }))

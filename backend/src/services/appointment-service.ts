@@ -1,7 +1,11 @@
-import { AppointmentStatus, Prisma } from '@prisma/client'
+import { AppointmentStatus, Prisma, RoomStatus } from '@prisma/client'
 import { z } from 'zod'
+import type { AuthenticatedUser } from '../auth/types.js'
 import { prisma } from '../db/client.js'
-import { badRequest, conflict, notFound } from '../lib/api-error.js'
+import { badRequest, conflict, forbidden, notFound } from '../lib/api-error.js'
+import { publishRealtimeEvent } from '../realtime/event-bus.js'
+import { createNotification } from './notifications-service.js'
+import { ensureUserFromAuth } from './users-service.js'
 
 export const appointmentStatusSchema = z.nativeEnum(AppointmentStatus)
 
@@ -44,6 +48,12 @@ async function ensureRoomExists(roomId: string) {
   return room
 }
 
+function assertRoomReservable(status: RoomStatus) {
+  if (status === RoomStatus.MAINTENANCE) {
+    throw conflict('Room is blocked for maintenance and cannot be reserved.')
+  }
+}
+
 async function assertNoConflict(roomId: string, startsAt: Date, endsAt: Date, excludeId?: string) {
   const overlapping = await prisma.appointment.findFirst({
     where: {
@@ -60,7 +70,47 @@ async function assertNoConflict(roomId: string, startsAt: Date, endsAt: Date, ex
   }
 }
 
-export async function listAppointments(query: z.infer<typeof appointmentQuerySchema>) {
+function assertStudentOwnership(actor: AuthenticatedUser, ownerUserId: string) {
+  if (actor.role === 'student' && actor.id !== ownerUserId) {
+    throw forbidden('Students can access only their own appointments.')
+  }
+}
+
+function assertCanSetConfirmed(actor: AuthenticatedUser, status?: AppointmentStatus) {
+  if (status === AppointmentStatus.CONFIRMED && actor.role === 'student') {
+    throw forbidden('Only staff or admin can confirm appointments.')
+  }
+}
+
+function assertStudentDraftMutation(actor: AuthenticatedUser, currentStatus: AppointmentStatus, nextStatus?: AppointmentStatus) {
+  if (actor.role !== 'student') return
+
+  assertCanSetConfirmed(actor, nextStatus)
+
+  if (currentStatus === AppointmentStatus.CONFIRMED && nextStatus !== AppointmentStatus.CANCELLED) {
+    throw forbidden('Students can only update draft appointments or cancel confirmed ones.')
+  }
+}
+
+function buildAppointmentUpdatedEventPayload(item: {
+  id: string
+  roomId: string
+  title: string
+  status: AppointmentStatus
+  startsAt: Date
+  endsAt: Date
+}) {
+  return {
+    appointmentId: item.id,
+    roomId: item.roomId,
+    title: item.title,
+    status: item.status,
+    startsAt: item.startsAt.toISOString(),
+    endsAt: item.endsAt.toISOString(),
+  }
+}
+
+export async function listAppointments(query: z.infer<typeof appointmentQuerySchema>, actor: AuthenticatedUser) {
   const overlapWhere: Prisma.AppointmentWhereInput = query.from && query.to
     ? {
         startsAt: { lt: query.to },
@@ -75,6 +125,7 @@ export async function listAppointments(query: z.infer<typeof appointmentQuerySch
   const where: Prisma.AppointmentWhereInput = {
     roomId: query.roomId,
     status: query.status,
+    ownerUserId: actor.role === 'student' ? actor.id : undefined,
     ...overlapWhere,
   }
 
@@ -85,23 +136,28 @@ export async function listAppointments(query: z.infer<typeof appointmentQuerySch
   })
 }
 
-export async function getAppointmentById(appointmentId: string) {
+export async function getAppointmentById(appointmentId: string, actor: AuthenticatedUser) {
   const item = await prisma.appointment.findUnique({
     where: { id: appointmentId },
     include: { room: true },
   })
 
   if (!item) throw notFound(`Appointment ${appointmentId} not found.`)
+  assertStudentOwnership(actor, item.ownerUserId)
   return item
 }
 
-export async function createAppointment(input: z.infer<typeof createAppointmentSchema>) {
+export async function createAppointment(input: z.infer<typeof createAppointmentSchema>, actor: AuthenticatedUser) {
   assertRange(input.startsAt, input.endsAt)
-  await ensureRoomExists(input.roomId)
+  assertCanSetConfirmed(actor, input.status)
+  await ensureUserFromAuth(actor)
+  const room = await ensureRoomExists(input.roomId)
+  assertRoomReservable(room.status)
   await assertNoConflict(input.roomId, input.startsAt, input.endsAt)
 
-  return prisma.appointment.create({
+  const created = await prisma.appointment.create({
     data: {
+      ownerUserId: actor.id,
       title: input.title,
       description: input.description,
       roomId: input.roomId,
@@ -112,24 +168,48 @@ export async function createAppointment(input: z.infer<typeof createAppointmentS
     },
     include: { room: true },
   })
+
+  publishRealtimeEvent({
+    type: 'appointment.created',
+    data: {
+      appointmentId: created.id,
+      roomId: created.roomId,
+      title: created.title,
+      status: created.status,
+      startsAt: created.startsAt.toISOString(),
+      endsAt: created.endsAt.toISOString(),
+    },
+  })
+
+  await createNotification({
+    userId: created.ownerUserId,
+    type: 'system',
+    title: 'Reservation request received',
+    message: `Your request for ${created.room.name} is pending review (${created.status}).`,
+  })
+
+  return created
 }
 
-export async function updateAppointment(appointmentId: string, input: z.infer<typeof updateAppointmentSchema>) {
+export async function updateAppointment(appointmentId: string, input: z.infer<typeof updateAppointmentSchema>, actor: AuthenticatedUser) {
   const existing = await prisma.appointment.findUnique({ where: { id: appointmentId } })
   if (!existing) throw notFound(`Appointment ${appointmentId} not found.`)
+  assertStudentOwnership(actor, existing.ownerUserId)
+  assertStudentDraftMutation(actor, existing.status, input.status)
 
   const roomId = input.roomId ?? existing.roomId
   const startsAt = input.startsAt ?? existing.startsAt
   const endsAt = input.endsAt ?? existing.endsAt
 
   assertRange(startsAt, endsAt)
-  await ensureRoomExists(roomId)
+  const room = await ensureRoomExists(roomId)
+  assertRoomReservable(room.status)
 
   if (existing.status !== AppointmentStatus.CANCELLED && input.status !== AppointmentStatus.CANCELLED) {
     await assertNoConflict(roomId, startsAt, endsAt, appointmentId)
   }
 
-  return prisma.appointment.update({
+  const updated = await prisma.appointment.update({
     where: { id: appointmentId },
     data: {
       title: input.title,
@@ -142,9 +222,108 @@ export async function updateAppointment(appointmentId: string, input: z.infer<ty
     },
     include: { room: true },
   })
+
+  publishRealtimeEvent({
+    type: 'appointment.updated',
+    data: buildAppointmentUpdatedEventPayload(updated),
+  })
+
+  if (existing.status !== updated.status) {
+    await createNotification({
+      userId: updated.ownerUserId,
+      type: updated.status === AppointmentStatus.CONFIRMED ? 'booking_confirmed' : updated.status === AppointmentStatus.CANCELLED ? 'booking_cancelled' : 'system',
+      title: 'Reservation status changed',
+      message: `${updated.title} is now ${updated.status}.`,
+    })
+  }
+
+  return updated
 }
 
-export async function deleteAppointment(appointmentId: string) {
-  await getAppointmentById(appointmentId)
+export async function deleteAppointment(appointmentId: string, actor: AuthenticatedUser) {
+  const item = await getAppointmentById(appointmentId, actor)
   await prisma.appointment.delete({ where: { id: appointmentId } })
+
+  publishRealtimeEvent({
+    type: 'appointment.deleted',
+    data: {
+      appointmentId: item.id,
+      roomId: item.roomId,
+      title: item.title,
+      status: item.status,
+      startsAt: item.startsAt.toISOString(),
+      endsAt: item.endsAt.toISOString(),
+    },
+  })
+}
+
+export async function confirmAppointment(appointmentId: string, actor: AuthenticatedUser) {
+  if (actor.role === 'student') {
+    throw forbidden('Only staff or admin can confirm appointments.')
+  }
+
+  const existing = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { room: true },
+  })
+
+  if (!existing) throw notFound(`Appointment ${appointmentId} not found.`)
+
+  if (existing.status !== AppointmentStatus.DRAFT) {
+    throw conflict('Only draft appointments can be confirmed.')
+  }
+
+  const updated = await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { status: AppointmentStatus.CONFIRMED },
+    include: { room: true },
+  })
+
+  publishRealtimeEvent({
+    type: 'appointment.updated',
+    data: buildAppointmentUpdatedEventPayload(updated),
+  })
+
+  await createNotification({
+    userId: updated.ownerUserId,
+    type: 'booking_confirmed',
+    title: 'Reservation confirmed',
+    message: `${updated.title} has been confirmed for ${updated.room.name}.`,
+  })
+
+  return updated
+}
+
+export async function cancelAppointment(appointmentId: string, actor: AuthenticatedUser) {
+  const existing = await prisma.appointment.findUnique({
+    where: { id: appointmentId },
+    include: { room: true },
+  })
+
+  if (!existing) throw notFound(`Appointment ${appointmentId} not found.`)
+  assertStudentOwnership(actor, existing.ownerUserId)
+
+  if (existing.status === AppointmentStatus.CANCELLED) {
+    throw conflict('Appointment is already cancelled.')
+  }
+
+  const updated = await prisma.appointment.update({
+    where: { id: appointmentId },
+    data: { status: AppointmentStatus.CANCELLED },
+    include: { room: true },
+  })
+
+  publishRealtimeEvent({
+    type: 'appointment.updated',
+    data: buildAppointmentUpdatedEventPayload(updated),
+  })
+
+  await createNotification({
+    userId: updated.ownerUserId,
+    type: 'booking_cancelled',
+    title: 'Reservation cancelled',
+    message: `${updated.title} has been cancelled.`,
+  })
+
+  return updated
 }

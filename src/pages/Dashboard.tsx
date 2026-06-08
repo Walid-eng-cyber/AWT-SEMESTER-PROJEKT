@@ -1,26 +1,48 @@
+import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Sidebar from '../components/layout/Sidebar'
 import Footer from '../components/layout/Footer'
 import MobileBottomNav from '../components/layout/MobileBottomNav'
 import { MapPin, Calendar, ChevronRight, ExternalLink } from 'lucide-react'
+import { useLiveCampusData } from '../realtime/useLiveCampusData'
 
-const upcoming = [
-  { title: 'Design Review: Phase 2', room: 'Room 104 · Holzstraße', time: 'Today · 14:00', status: 'confirmed' },
-  { title: 'Graduate Thesis Prep', room: 'Library Pod 04 · Main Campus', time: 'Tomorrow · 09:00', status: 'confirmed' },
-]
-
-const recommended = [
-  { id: 'A.104', name: 'Holzstraße A.104', building: 'Building A', seats: 12, status: 'available' },
-  { id: '02.15', name: 'Lucy-Hillebrand-Str. 02.15', building: 'Main Campus', seats: 4, status: 'in_use' },
-]
-
-const activity = [
-  { msg: 'Confirmed: Studio B.02 reserved.', ago: '12 MIN AGO', type: 'success' },
-  { msg: 'Alert: AC maintenance in Bldg C.', ago: '2 HRS AGO', type: 'warning' },
-]
+function formatSlot(start: string) {
+  const date = new Date(start)
+  const day = date.toLocaleDateString(undefined, { weekday: 'short' })
+  const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+  return `${day} · ${time}`
+}
 
 export default function Dashboard() {
+  const { rooms, appointments, activity, connected, error } = useLiveCampusData()
+
+  const availableRoomsCount = useMemo(
+    () => rooms.filter(room => room.status === 'AVAILABLE').length,
+    [rooms],
+  )
+
+  const todayBookingsCount = useMemo(() => {
+    const today = new Date().toDateString()
+    return appointments.filter(item => {
+      if (item.status === 'CANCELLED') return false
+      return new Date(item.startsAt).toDateString() === today
+    }).length
+  }, [appointments])
+
+  const upcoming = useMemo(
+    () => appointments
+      .filter(item => item.status !== 'CANCELLED' && new Date(item.startsAt).getTime() >= Date.now())
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+      .slice(0, 2),
+    [appointments],
+  )
+
+  const recommended = useMemo(
+    () => rooms.slice(0, 2),
+    [rooms],
+  )
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar authenticated />
@@ -37,21 +59,22 @@ export default function Dashboard() {
           <div className="mb-8">
             <h1 className="text-2xl font-bold text-brand-dark">Guten Tag, Alex.</h1>
             <p className="text-sm text-brand-muted mt-1">
-              Your workspace at the School of Design is ready. You have{' '}
-              <span className="text-brand-dark font-semibold">2 bookings</span> scheduled for today.
+              Live status is {connected ? 'connected' : 'disconnected'}. You have{' '}
+              <span className="text-brand-dark font-semibold">{todayBookingsCount} bookings</span> scheduled for today.
             </p>
+            {error && <p className="text-xs text-amber-600 mt-2">{error}</p>}
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <div className="card p-4 sm:p-5">
               <p className="text-xs text-brand-muted uppercase tracking-wide mb-2">Available Hubs</p>
-              <p className="text-2xl sm:text-3xl font-bold text-brand-dark">14</p>
+              <p className="text-2xl sm:text-3xl font-bold text-brand-dark">{availableRoomsCount}</p>
               <p className="text-xs text-brand-muted mt-1">Rooms</p>
             </div>
             <div className="card p-4 sm:p-5">
               <p className="text-xs text-brand-muted uppercase tracking-wide mb-2">Active Bookings</p>
-              <p className="text-2xl sm:text-3xl font-bold text-brand-dark">02</p>
+              <p className="text-2xl sm:text-3xl font-bold text-brand-dark">{todayBookingsCount}</p>
               <p className="text-xs text-brand-muted mt-1">Today</p>
             </div>
             <div className="col-span-1 sm:col-span-2 lg:col-span-1 card p-4 sm:p-5 bg-brand-dark text-white">
@@ -85,20 +108,23 @@ export default function Dashboard() {
                 </div>
                 <div className="space-y-3">
                   {upcoming.map(b => (
-                    <div key={b.title} className="flex flex-col sm:flex-row items-start gap-4 p-3 rounded-lg hover:bg-brand-surface transition-colors">
+                    <div key={b.id} className="flex flex-col sm:flex-row items-start gap-4 p-3 rounded-lg hover:bg-brand-surface transition-colors">
                       <div className="w-8 h-8 bg-brand-primary/10 rounded-lg flex items-center justify-center shrink-0 mt-0.5">
                         <Calendar size={14} className="text-brand-primary" />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-brand-dark">{b.title}</p>
-                        <p className="text-xs text-brand-muted mt-0.5">{b.room}</p>
+                        <p className="text-xs text-brand-muted mt-0.5">{b.roomName ?? b.roomId}</p>
                       </div>
                       <div className="text-left sm:text-right shrink-0">
-                        <p className="text-xs text-brand-muted">{b.time}</p>
-                        <span className="badge-confirmed mt-1">Confirmed</span>
+                        <p className="text-xs text-brand-muted">{formatSlot(b.startsAt)}</p>
+                        <span className="badge-confirmed mt-1">{b.status}</span>
                       </div>
                     </div>
                   ))}
+                  {upcoming.length === 0 && (
+                    <p className="text-xs text-brand-muted">No upcoming bookings in the next days.</p>
+                  )}
                 </div>
               </div>
 
@@ -115,12 +141,14 @@ export default function Dashboard() {
                         <div>
                           <p className="text-sm font-medium text-brand-dark leading-tight">{r.name}</p>
                           <p className="text-xs text-brand-muted mt-0.5 flex items-center gap-1">
-                            <MapPin size={10} /> {r.building} · {r.seats} Seats
+                            <MapPin size={10} /> {r.location} · {r.capacity} Seats
                           </p>
                         </div>
-                        {r.status === 'available'
+                        {r.status === 'AVAILABLE'
                           ? <span className="badge-available">Available</span>
-                          : <span className="badge-inuse">In Use</span>
+                          : r.status === 'MAINTENANCE'
+                            ? <span className="badge-inuse">Maintenance</span>
+                            : <span className="badge-inuse">In Use</span>
                         }
                       </div>
                       <Link to={`/rooms/${r.id}`} className="text-xs text-brand-dark font-semibold hover:text-brand-primary transition-colors flex items-center gap-1 mt-3">
@@ -141,13 +169,16 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {activity.map((a, i) => (
                   <div key={i} className="flex gap-3">
-                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${a.type === 'success' ? 'bg-emerald-500' : 'bg-amber-400'}`} />
+                    <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${a.type === 'success' ? 'bg-emerald-500' : a.type === 'warning' ? 'bg-amber-400' : 'bg-sky-500'}`} />
                     <div>
                       <p className="text-xs text-brand-dark">{a.msg}</p>
                       <p className="text-xs text-brand-muted mt-0.5">{a.ago}</p>
                     </div>
                   </div>
                 ))}
+                {activity.length === 0 && (
+                  <p className="text-xs text-brand-muted">No realtime activity yet.</p>
+                )}
               </div>
 
               <button className="btn-outline w-full mt-6 text-xs py-2">

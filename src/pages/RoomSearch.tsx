@@ -5,6 +5,7 @@ import Sidebar from '../components/layout/Sidebar'
 import Footer from '../components/layout/Footer'
 import MobileBottomNav from '../components/layout/MobileBottomNav'
 import { MapPin, Users, Monitor, Speaker, Wifi, ChevronRight, SlidersHorizontal, X } from 'lucide-react'
+import { useLiveCampusData } from '../realtime/useLiveCampusData'
 
 type Room = {
   id: string
@@ -18,17 +19,6 @@ type Room = {
   nextAvail?: string
 }
 
-const allRooms: Room[] = [
-  { id: 'A.204', name: 'A.204 Auditorium', building: 'Building A', floor: 'Level 2', seats: 120, type: 'Lecture', equipment: ['Projector', 'Smartboard'], status: 'available' },
-  { id: 'B.012', name: 'B.012 Collaborative Hub', building: 'Building B', floor: 'Ground', seats: 8, type: 'Seminar', equipment: ['Touch Display', 'Whiteboard'], status: 'available' },
-  { id: 'C.410', name: 'Digital Media Studio', building: 'Building C', floor: 'Level 4', seats: 24, type: 'Studio', equipment: ['Pro Audio', 'Streaming Kit'], status: 'in_use', nextAvail: '14:00' },
-  { id: 'A.104', name: 'Holzstraße A.104', building: 'Building A', floor: 'Level 1', seats: 12, type: 'Seminar', equipment: ['Projector', 'Smartboard'], status: 'available' },
-  { id: 'B.301', name: 'Engineering Lab B.301', building: 'Building B', floor: 'Level 3', seats: 30, type: 'Lab', equipment: ['Workstations', 'Smartboard'], status: 'available' },
-  { id: 'C.120', name: 'Design Workshop C.120', building: 'Building C', floor: 'Level 1', seats: 18, type: 'Studio', equipment: ['Drawing Tables', 'Projector'], status: 'in_use', nextAvail: '16:00' },
-  { id: 'A.210', name: 'Seminar Room A.210', building: 'Building A', floor: 'Level 2', seats: 35, type: 'Seminar', equipment: ['Projector', 'PA System'], status: 'available' },
-  { id: 'B.102', name: 'Research Lab B.102', building: 'Building B', floor: 'Level 1', seats: 20, type: 'Lab', equipment: ['Smartboard', 'Projector'], status: 'available' },
-]
-
 const equipmentIcons: Record<string, React.ReactNode> = {
   'Projector': <Monitor size={12} />,
   'Smartboard': <Monitor size={12} />,
@@ -38,10 +28,24 @@ const equipmentIcons: Record<string, React.ReactNode> = {
 }
 
 export default function RoomSearch() {
+  const { rooms: liveRooms, connected, error } = useLiveCampusData()
+
   const [building, setBuilding] = useState('all')
   const [roomType, setRoomType] = useState<string[]>([])
   const [capacityRange, setCapacityRange] = useState('all')
   const [filtersOpen, setFiltersOpen] = useState(false)
+
+  const allRooms: Room[] = liveRooms.map(room => ({
+    id: room.id,
+    name: room.name,
+    building: room.location,
+    floor: 'Campus',
+    seats: room.capacity,
+    type: room.capacity >= 50 ? 'Lecture' : room.capacity >= 20 ? 'Lab' : 'Seminar',
+    equipment: room.equipment,
+    status: room.status === 'AVAILABLE' ? 'available' : 'in_use',
+    nextAvail: room.status === 'MAINTENANCE' ? 'After maintenance' : undefined,
+  }))
 
   const toggleType = (t: string) =>
     setRoomType(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
@@ -72,6 +76,10 @@ export default function RoomSearch() {
                 <h1 className="text-xl sm:text-2xl font-bold text-brand-dark">Explore Spatial Assets</h1>
                 <p className="text-sm text-brand-muted mt-1">
                   Curated learning environments optimized for academic excellence and collaborative research.
+                </p>
+                <p className="text-xs text-brand-muted mt-1">
+                  Realtime: {connected ? 'connected' : 'disconnected'}
+                  {error ? ` · ${error}` : ''}
                 </p>
               </div>
               <div className="flex items-center gap-3">

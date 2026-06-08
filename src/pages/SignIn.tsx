@@ -1,11 +1,60 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import logo from '../assets/logo.png'
+import { postJson, setAccessToken } from '../api/http'
+
+interface LoginResponse {
+  tokenType: string
+  accessToken: string
+  expiresIn: number
+  user: {
+    id: string
+    email: string
+    role: 'student' | 'staff' | 'admin'
+  }
+}
 
 export default function SignIn() {
+  const navigate = useNavigate()
   const [showPw, setShowPw] = useState(false)
   const [remember, setRemember] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setError(null)
+    setIsSubmitting(true)
+
+    try {
+      const normalizedEmail = email.trim().toLowerCase()
+      if (!normalizedEmail) {
+        throw new Error('Please enter your email.')
+      }
+
+      if (!password) {
+        throw new Error('Please enter your password.')
+      }
+
+      const response = await postJson<LoginResponse, { email: string; password: string }>(
+        '/api/v1/auth/login',
+        {
+          email: normalizedEmail,
+          password,
+        },
+      )
+
+      setAccessToken(response.accessToken, remember ? 'local' : 'session')
+      navigate('/dashboard')
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : 'Login failed.')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -47,16 +96,28 @@ export default function SignIn() {
             <h2 className="text-2xl font-bold text-brand-dark mb-1">Sign In</h2>
             <p className="text-sm text-brand-muted mb-8">Enter your university credentials to continue.</p>
 
-            <form className="space-y-5">
+            <form className="space-y-5" onSubmit={handleSubmit}>
               <div>
                 <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Email / University ID</label>
-                <input type="text" className="input-field" placeholder="name@hs-mainz.de" />
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="name@hs-mainz.de"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                />
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-brand-dark mb-1.5 tracking-wide uppercase">Password</label>
                 <div className="relative">
-                  <input type={showPw ? 'text' : 'password'} className="input-field pr-10" placeholder="••••••••" />
+                  <input
+                    type={showPw ? 'text' : 'password'}
+                    className="input-field pr-10"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                  />
                   <button
                     type="button"
                     onClick={() => setShowPw(p => !p)}
@@ -80,7 +141,10 @@ export default function SignIn() {
                 <a href="#" className="text-xs text-brand-primary hover:underline">Forgot password?</a>
               </div>
 
-              <button type="submit" className="btn-primary w-full">Sign In</button>
+              {error && <p className="text-xs text-red-600">{error}</p>}
+              <button type="submit" className="btn-primary w-full" disabled={isSubmitting}>
+                {isSubmitting ? 'Signing In...' : 'Sign In'}
+              </button>
             </form>
 
             {/* Divider */}
@@ -88,6 +152,13 @@ export default function SignIn() {
               <div className="flex-1 border-t border-brand-border" />
               <span className="mx-3 text-xs text-brand-muted">or</span>
               <div className="flex-1 border-t border-brand-border" />
+            </div>
+
+            <div className="mb-6 rounded-lg border border-brand-border bg-brand-surface p-3">
+              <p className="text-[11px] font-semibold tracking-widest uppercase text-brand-muted mb-2">Demo Accounts</p>
+              <p className="text-xs text-brand-dark">Student: student@hs-mainz.de / Student123!</p>
+              <p className="text-xs text-brand-dark mt-1">Staff: staff@hs-mainz.de / Staff123!</p>
+              <p className="text-xs text-brand-dark mt-1">Admin: admin@hs-mainz.de / Admin123!</p>
             </div>
 
             {/* External access */}
