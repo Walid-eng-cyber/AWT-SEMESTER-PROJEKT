@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import Navbar from '../components/layout/Navbar'
 import Footer from '../components/layout/Footer'
 import { ArrowRight, Layers, Users, Cpu } from 'lucide-react'
-import logo from '../assets/logo.png'
+import landingPageImage from '../assets/LandingPage.jpeg'
 
 const stats = [
   { value: '150+', label: 'Flexible Spaces' },
@@ -53,11 +53,14 @@ export default function LandingPage() {
       <Navbar />
 
       {/* Hero */}
-      <section className="bg-brand-dark text-white relative overflow-hidden">
-        <div className="absolute inset-0 opacity-5 pointer-events-none" style={{backgroundImage:'repeating-linear-gradient(90deg,#A5CD39 0px,#A5CD39 1px,transparent 1px,transparent 80px),repeating-linear-gradient(180deg,#A5CD39 0px,#A5CD39 1px,transparent 1px,transparent 80px)'}} />
+      <section
+        className="hero-background bg-brand-dark text-white relative overflow-hidden flex flex-col min-h-[100svh]"
+        style={{
+          backgroundImage: `linear-gradient(rgba(10, 12, 18, 0.82), rgba(10, 12, 18, 0.82)), url(${landingPageImage})`,
+        }}
+      >
         <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-12 sm:py-16 md:py-24 relative z-10">
           <div className="max-w-2xl">
-            <img src={logo} alt="Hochschule Mainz" className="h-40 sm:h-44 mb-6 brightness-0 invert" />
             <p className="text-brand-primary text-xs font-semibold tracking-widest uppercase mb-3 sm:mb-4">Room Management System</p>
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-4 sm:mb-6">
               Space for<br /><span className="text-brand-primary">Excellence.</span>
@@ -76,24 +79,28 @@ export default function LandingPage() {
           </div>
         </div>
 
-        {/* Stats bar */}
-        <div className="border-t border-white/10">
-          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 sm:divide-x divide-white/10">
-            {stats.map(s => (
-              <div key={s.label} className="text-center px-4">
-                <p className="text-2xl font-bold text-brand-primary">{s.value}</p>
-                <p className="text-xs text-gray-400 mt-1">{s.label}</p>
-              </div>
-            ))}
+        <div className="mt-auto">
+          {/* Stats bar */}
+          <div className="border-t border-white/10">
+            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 sm:divide-x divide-white/10">
+              {stats.map(s => (
+                <div key={s.label} className="text-center px-4">
+                  <p className="text-2xl font-bold text-brand-primary">{s.value}</p>
+                  <p className="text-xs text-gray-400 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* Campus update banner */}
-        <div className="bg-brand-navy/80 border-t border-brand-primary/30 backdrop-blur-sm">
-          <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
-            <span className="w-2 h-2 bg-brand-primary rounded-full animate-pulse shrink-0" />
-            <span className="text-brand-primary font-medium text-xs uppercase tracking-wide">Campus Update</span>
-            <span className="text-gray-300 text-xs">Lux Pavillon is open for student exhibition bookings until Friday.</span>
+          {/* Campus update banner */}
+          <div className="bg-brand-navy/85 border-t border-brand-primary/30 backdrop-blur-sm">
+            <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-3">
+              <div className="mx-auto w-full max-w-3xl flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center sm:text-left sm:justify-start">
+                <span className="w-2 h-2 bg-brand-primary rounded-full animate-pulse shrink-0" />
+                <span className="text-brand-primary font-medium text-xs uppercase tracking-wide whitespace-nowrap">Campus Update</span>
+                <span className="text-gray-300 text-xs sm:text-sm leading-relaxed sm:leading-normal">Lux Pavillon is open for student exhibition bookings until Friday.</span>
+              </div>
+            </div>
           </div>
         </div>
       </section>

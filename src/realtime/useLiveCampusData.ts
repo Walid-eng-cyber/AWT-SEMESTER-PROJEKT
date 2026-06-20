@@ -146,7 +146,8 @@ export function useLiveCampusData() {
   const [appointments, setAppointments] = useState<LiveAppointment[]>([])
   const [activity, setActivity] = useState<LiveActivity[]>([])
   const [connected, setConnected] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [realtimeError, setRealtimeError] = useState<string | null>(null)
   const roomNameByIdRef = useRef<Record<string, string>>({})
 
   useEffect(() => {
@@ -193,75 +194,122 @@ export function useLiveCampusData() {
           status: item.status,
           roomName: item.room?.name,
         })))
+        setLoadError(null)
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : 'Unknown loading error')
+          setLoadError(loadError instanceof Error ? loadError.message : 'Unknown loading error')
         }
       }
     }
 
     void loadInitial()
+    const poll = window.setInterval(() => {
+      void loadInitial()
+    }, 15000)
 
     return () => {
       cancelled = true
+      window.clearInterval(poll)
     }
   }, [apiBaseUrl])
 
   useEffect(() => {
-    const socket = new WebSocket(webSocketUrl)
+    let disposed = false
+    let activeSocket: WebSocket | null = null
+    let reconnectTimer: number | null = null
 
-    socket.onopen = () => setConnected(true)
-    socket.onclose = () => setConnected(false)
-    socket.onerror = () => setError('Realtime connection error.')
-
-    socket.onmessage = (message) => {
-      try {
-        const event = JSON.parse(message.data as string) as RealtimeEvent
-
-        if (event.eventVersion !== EVENT_VERSION || event.schemaVersion !== SCHEMA_VERSION) {
-          return
-        }
-
-        setActivity(prev => [buildActivity(event), ...prev].slice(0, 12))
-
-        if (event.type === 'room.status.changed') {
-          const data = event.data as unknown as RoomEventData
-          setRooms(prev => prev.map(room => room.id === data.roomId ? { ...room, status: data.status } : room))
-          return
-        }
-
-        if (event.type === 'appointment.created' || event.type === 'appointment.updated') {
-          const data = event.data as unknown as AppointmentEventData
-          setAppointments(prev => {
-            const roomName = roomNameByIdRef.current[data.roomId]
-            const next = {
-              id: data.appointmentId,
-              roomId: data.roomId,
-              title: data.title,
-              startsAt: data.startsAt,
-              endsAt: data.endsAt,
-              status: data.status,
-              roomName,
-            }
-            const withoutCurrent = prev.filter(item => item.id !== next.id)
-            return [...withoutCurrent, next].sort((a, b) => a.startsAt.localeCompare(b.startsAt))
-          })
-          return
-        }
-
-        if (event.type === 'appointment.deleted') {
-          const data = event.data as unknown as AppointmentEventData
-          setAppointments(prev => prev.filter(item => item.id !== data.appointmentId))
-        }
-      } catch {
-        // Ignore malformed realtime payloads.
+    const clearReconnectTimer = () => {
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer)
+        reconnectTimer = null
       }
     }
 
+    const scheduleReconnect = () => {
+      if (disposed) return
+      if (reconnectTimer !== null) return
+
+      reconnectTimer = window.setTimeout(() => {
+        reconnectTimer = null
+        connect()
+      }, 2000)
+    }
+
+    const connect = () => {
+      if (disposed) return
+
+      const socket = new WebSocket(webSocketUrl)
+      activeSocket = socket
+
+      socket.onopen = () => {
+        setConnected(true)
+        setRealtimeError(null)
+      }
+
+      socket.onclose = () => {
+        setConnected(false)
+        scheduleReconnect()
+      }
+
+      socket.onerror = () => {
+        setRealtimeError('Realtime connection error.')
+      }
+
+      socket.onmessage = (message) => {
+        try {
+          const event = JSON.parse(message.data as string) as RealtimeEvent
+
+          if (event.eventVersion !== EVENT_VERSION || event.schemaVersion !== SCHEMA_VERSION) {
+            return
+          }
+
+          setActivity(prev => [buildActivity(event), ...prev].slice(0, 12))
+
+          if (event.type === 'room.status.changed') {
+            const data = event.data as unknown as RoomEventData
+            setRooms(prev => prev.map(room => room.id === data.roomId ? { ...room, status: data.status } : room))
+            return
+          }
+
+          if (event.type === 'appointment.created' || event.type === 'appointment.updated') {
+            const data = event.data as unknown as AppointmentEventData
+            setAppointments(prev => {
+              const roomName = roomNameByIdRef.current[data.roomId]
+              const next = {
+                id: data.appointmentId,
+                roomId: data.roomId,
+                title: data.title,
+                startsAt: data.startsAt,
+                endsAt: data.endsAt,
+                status: data.status,
+                roomName,
+              }
+              const withoutCurrent = prev.filter(item => item.id !== next.id)
+              return [...withoutCurrent, next].sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+            })
+            return
+          }
+
+          if (event.type === 'appointment.deleted') {
+            const data = event.data as unknown as AppointmentEventData
+            setAppointments(prev => prev.filter(item => item.id !== data.appointmentId))
+          }
+        } catch {
+          // Ignore malformed realtime payloads.
+        }
+      }
+    }
+
+    connect()
+
     return () => {
-      socket.close()
+      disposed = true
+      clearReconnectTimer()
+      activeSocket?.close()
     }
   }, [webSocketUrl])
+
+  const error = realtimeError ?? loadError
 
   return {
     rooms,

@@ -5,6 +5,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { WebSocket } from 'ws'
 import { createApp } from '../../src/app.js'
 import { prisma } from '../../src/db/client.js'
+import { clearMockPublishedEvents, closeDomainEventBroker, getMockPublishedEvents } from '../../src/messaging/broker.js'
+import { startNotificationsConsumer } from '../../src/notifications/consumer.js'
 import { registerWebSocketServer } from '../../src/realtime/ws-server.js'
 
 type Role = 'student' | 'staff' | 'admin'
@@ -20,6 +22,38 @@ async function resetDatabase() {
   await prisma.appointment.deleteMany()
   await prisma.room.deleteMany()
   await prisma.user.deleteMany({ where: { id: { not: 'legacy-user' } } })
+}
+
+async function waitForNotification(userId: string, timeoutMs = 3000) {
+  const started = Date.now()
+
+  while (Date.now() - started < timeoutMs) {
+    const found = await prisma.notification.findFirst({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (found) return found
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+
+  throw new Error(`Timed out waiting for notification for user ${userId}.`)
+}
+
+async function waitForNotificationByTitle(userId: string, title: string, timeoutMs = 3000) {
+  const started = Date.now()
+
+  while (Date.now() - started < timeoutMs) {
+    const found = await prisma.notification.findFirst({
+      where: { userId, title },
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (found) return found
+    await new Promise((resolve) => setTimeout(resolve, 50))
+  }
+
+  throw new Error(`Timed out waiting for notification \"${title}\" for user ${userId}.`)
 }
 
 async function login(baseRequest: request.SuperTest<request.Test>, role: Role, tag: string): Promise<AuthResult> {
@@ -79,14 +113,17 @@ describe('API integration: RBAC, lifecycle, ownership', () => {
 
   beforeAll(async () => {
     await prisma.$connect()
+    await startNotificationsConsumer()
   })
 
   beforeEach(async () => {
     await resetDatabase()
+    clearMockPublishedEvents()
   })
 
   afterAll(async () => {
     await resetDatabase()
+    await closeDomainEventBroker()
     await prisma.$disconnect()
   })
 
@@ -140,6 +177,34 @@ describe('API integration: RBAC, lifecycle, ownership', () => {
       .send({ title: 'Unauthorized edit attempt' })
       .expect(403)
   })
+
+  it('publishes appointment events and consumer creates notifications via mocked messaging', async () => {
+    const suffix = (Date.now() + 4).toString()
+    const admin = await login(api, 'admin', `admin-${suffix}`)
+    const staff = await login(api, 'staff', `staff-${suffix}`)
+    const student = await login(api, 'student', `student-${suffix}`)
+    const room = await createRoom(api, admin.token, suffix)
+
+    await api
+      .post('/api/v1/appointments')
+      .set('Authorization', `Bearer ${student.token}`)
+      .send({
+        roomId: room.id,
+        title: `Messaging Appointment ${suffix}`,
+        startsAt: '2030-01-02T10:00:00.000Z',
+        endsAt: '2030-01-02T11:00:00.000Z',
+      })
+      .expect(201)
+
+    const published = getMockPublishedEvents()
+    expect(published.some((event) => event.type === 'appointment.created')).toBe(true)
+
+    const notification = await waitForNotification(student.userId)
+    expect(notification.title).toBe('Reservation request received')
+
+    const staffNotification = await waitForNotificationByTitle(staff.userId, 'New reservation request')
+    expect(staffNotification.userId).toBe(staff.userId)
+  })
 })
 
 describe('Realtime integration', () => {
@@ -149,6 +214,7 @@ describe('Realtime integration', () => {
 
   beforeAll(async () => {
     await prisma.$connect()
+    await startNotificationsConsumer()
     const app = createApp()
     server = createServer(app)
     registerWebSocketServer(server)
@@ -164,10 +230,12 @@ describe('Realtime integration', () => {
 
   beforeEach(async () => {
     await resetDatabase()
+    clearMockPublishedEvents()
   })
 
   afterAll(async () => {
     await resetDatabase()
+    await closeDomainEventBroker()
     await new Promise<void>((resolve, reject) => {
       server.close((error) => {
         if (error) {

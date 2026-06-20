@@ -47,6 +47,18 @@ const DEV_CREDENTIALS = [
   },
 ]
 
+function inferNameFromEmail(email: string) {
+  const [localPart] = email.split('@')
+  const normalized = localPart.replace(/[._-]+/g, ' ').trim()
+  if (!normalized) return 'User'
+
+  return normalized
+    .split(' ')
+    .filter(Boolean)
+    .map(segment => segment[0].toUpperCase() + segment.slice(1))
+    .join(' ')
+}
+
 export const authRouter = Router()
 
 authRouter.post('/auth/register', asyncHandler(async (req, res) => {
@@ -137,6 +149,21 @@ authRouter.post('/auth/login', asyncHandler(async (req, res) => {
     })
     return
   }
+
+  await prisma.user.upsert({
+    where: { id: authUser.userId },
+    create: {
+      id: authUser.userId,
+      email: authUser.email,
+      fullName: inferNameFromEmail(authUser.email),
+      role: authUser.role,
+      status: 'active',
+    },
+    update: {
+      email: authUser.email,
+      role: authUser.role,
+    },
+  })
 
   const accessToken = signAccessToken({
     sub: authUser.userId,

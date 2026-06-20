@@ -1,16 +1,26 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { LayoutDashboard, Search, CalendarDays, Settings, PlusCircle, HelpCircle, LogOut } from 'lucide-react'
 import logo from '../../assets/logo.png'
-
-const navItems = [
-  { label: 'Overview', to: '/dashboard', icon: LayoutDashboard },
-  { label: 'Explore Rooms', to: '/rooms', icon: Search },
-  { label: 'Reservations', to: '/bookings', icon: CalendarDays },
-  { label: 'Settings', to: '/settings', icon: Settings },
-]
+import { usePreferences } from '../../preferences/PreferencesContext'
+import { clearAccessToken } from '../../api/http'
 
 export default function Sidebar() {
+  const navigate = useNavigate()
+  const { t } = usePreferences()
   const { pathname } = useLocation()
+
+  const navItems = [
+    { label: t.overview, to: '/dashboard', icon: LayoutDashboard },
+    { label: t.exploreRooms, to: '/rooms', icon: Search },
+    { label: t.reservations, to: '/bookings', icon: CalendarDays },
+    { label: t.events, to: '/events', icon: CalendarDays },
+    { label: t.settings, to: '/settings', icon: Settings },
+  ]
+
+  function handleLogout() {
+    clearAccessToken()
+    navigate('/signin')
+  }
 
   return (
     <aside className="hidden lg:flex flex-col w-56 bg-white border-r border-brand-border min-h-screen shrink-0">
@@ -37,16 +47,16 @@ export default function Sidebar() {
       <div className="px-3 py-4 border-t border-brand-border space-y-1">
         <Link to="/rooms/new" className="sidebar-link">
           <PlusCircle size={16} />
-          New Booking
+          {t.newBooking}
         </Link>
-        <a href="#" className="sidebar-link">
+        <Link to="/support" className="sidebar-link">
           <HelpCircle size={16} />
-          Help
-        </a>
-        <Link to="/" className="sidebar-link">
-          <LogOut size={16} />
-          Log out
+          {t.help}
         </Link>
+        <button type="button" className="sidebar-link w-full" onClick={handleLogout}>
+          <LogOut size={16} />
+          {t.logOut}
+        </button>
       </div>
     </aside>
   )

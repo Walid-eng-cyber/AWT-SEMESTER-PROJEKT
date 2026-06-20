@@ -5,13 +5,7 @@ import logo from '../../assets/logo.png'
 import type { Notification } from '../../api/contracts'
 import { listNotifications, markNotificationAsRead } from '../../api/services/notificationsService'
 import { clearAccessToken } from '../../api/http'
-
-const links = [
-  { label: 'Dashboard', to: '/dashboard' },
-  { label: 'Room Booking', to: '/rooms' },
-  { label: 'Events', to: '/events' },
-  { label: 'Support', to: '/support' },
-]
+import { usePreferences } from '../../preferences/PreferencesContext'
 
 interface NavbarProps {
   authenticated?: boolean
@@ -20,6 +14,7 @@ interface NavbarProps {
 export default function Navbar({ authenticated = false }: NavbarProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const { profileImage, t } = usePreferences()
   const [menuOpen, setMenuOpen] = useState(false)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -27,29 +22,27 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
   const [loadingNotifications, setLoadingNotifications] = useState(false)
   const [notificationsError, setNotificationsError] = useState<string | null>(null)
 
+  async function loadNotifications() {
+    setLoadingNotifications(true)
+    setNotificationsError(null)
+    try {
+      const data = await listNotifications()
+      setNotifications(data)
+    } catch (error) {
+      setNotificationsError(error instanceof Error ? error.message : 'Failed to load notifications.')
+    } finally {
+      setLoadingNotifications(false)
+    }
+  }
+
+  const links = [
+    { label: t.dashboard, to: '/dashboard' },
+    { label: t.roomBooking, to: '/rooms' },
+    { label: t.events, to: '/events' },
+    { label: t.support, to: '/support' },
+  ]
   useEffect(() => {
     if (!authenticated) return
-
-    let cancelled = false
-
-    async function loadNotifications() {
-      setLoadingNotifications(true)
-      setNotificationsError(null)
-      try {
-        const data = await listNotifications()
-        if (!cancelled) {
-          setNotifications(data)
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setNotificationsError(error instanceof Error ? error.message : 'Failed to load notifications.')
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingNotifications(false)
-        }
-      }
-    }
 
     void loadNotifications()
     const poll = window.setInterval(() => {
@@ -57,10 +50,16 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
     }, 15000)
 
     return () => {
-      cancelled = true
       window.clearInterval(poll)
     }
   }, [authenticated])
+
+  useEffect(() => {
+    if (!authenticated) return
+    if (!notificationsOpen) return
+
+    void loadNotifications()
+  }, [authenticated, notificationsOpen])
 
   const unreadCount = useMemo(
     () => notifications.filter((item) => !item.read).length,
@@ -139,12 +138,12 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
                 {notificationsOpen && (
                   <div className="absolute top-8 right-0 w-80 max-h-96 overflow-y-auto rounded-lg border border-brand-border bg-white text-brand-dark shadow-xl z-50">
                   <div className="px-4 py-3 border-b border-brand-border">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">Notifications</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-brand-muted">{t.notifications}</p>
                   </div>
-                  {loadingNotifications && <p className="px-4 py-3 text-xs text-brand-muted">Loading...</p>}
+                  {loadingNotifications && <p className="px-4 py-3 text-xs text-brand-muted">{t.loading}</p>}
                   {notificationsError && <p className="px-4 py-3 text-xs text-red-600">{notificationsError}</p>}
                   {!loadingNotifications && !notificationsError && notifications.length === 0 && (
-                    <p className="px-4 py-3 text-xs text-brand-muted">No notifications yet.</p>
+                    <p className="px-4 py-3 text-xs text-brand-muted">{t.noNotifications}</p>
                   )}
                   {!loadingNotifications && !notificationsError && notifications.map((item) => (
                     <button
@@ -166,7 +165,11 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
                   onClick={() => setUserMenuOpen((open) => !open)}
                   aria-label="Open user menu"
                 >
-                  AM
+                  {profileImage ? (
+                    <img src={profileImage} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    'AM'
+                  )}
                 </button>
                 {userMenuOpen && (
                   <div className="absolute top-10 right-0 min-w-40 rounded-lg border border-brand-border bg-white text-brand-dark shadow-xl z-50 overflow-hidden">
@@ -174,7 +177,7 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
                       className="w-full text-left px-4 py-2.5 text-xs font-semibold hover:bg-brand-surface"
                       onClick={handleDisconnect}
                     >
-                      Disconnect
+                      {t.disconnect}
                     </button>
                   </div>
                 )}
@@ -183,7 +186,6 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
           </>
         ) : (
           <>
-            {/* Public nav */}
             <nav className="hidden md:flex items-center gap-6">
               {links.map(({ label, to }) => (
                 <Link key={to} to={to} className="text-sm text-gray-300 hover:text-white transition-colors">
@@ -192,8 +194,8 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
               ))}
             </nav>
             <div className="hidden md:flex items-center gap-3">
-              <Link to="/signin" className="text-sm text-gray-300 hover:text-white transition-colors">Sign In</Link>
-              <Link to="/signup" className="btn-accent text-xs px-4 py-2">Sign Up</Link>
+              <Link to="/signin" className="text-sm text-gray-300 hover:text-white transition-colors">{t.signIn}</Link>
+              <Link to="/signup" className="btn-accent text-xs px-4 py-2">{t.signUp}</Link>
             </div>
           </>
         )}
@@ -214,8 +216,8 @@ export default function Navbar({ authenticated = false }: NavbarProps) {
           ))}
           {!authenticated && (
             <div className="pt-2 flex gap-3">
-              <Link to="/signin" className="text-sm text-gray-300" onClick={() => setMenuOpen(false)}>Sign In</Link>
-              <Link to="/signup" className="text-sm text-brand-primary" onClick={() => setMenuOpen(false)}>Sign Up</Link>
+              <Link to="/signin" className="text-sm text-gray-300" onClick={() => setMenuOpen(false)}>{t.signIn}</Link>
+              <Link to="/signup" className="text-sm text-brand-primary" onClick={() => setMenuOpen(false)}>{t.signUp}</Link>
             </div>
           )}
         </div>

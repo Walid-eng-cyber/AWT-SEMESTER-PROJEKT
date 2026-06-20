@@ -1,68 +1,105 @@
-# AWT Room Booking
+# AWT Roombooking Plattform
 
-Frontend SPA for room discovery and booking at Hochschule Mainz, now documented for a REST-first modular monolith backend.
+## Überblick
+Die Anwendung ist eine Campus-Plattform zur Raumverwaltung und Buchung an der Hochschule Mainz.
 
-## Current Status
-- Frontend SPA is implemented with React + Vite + TypeScript + Tailwind.
-- Backend implementation is starting with explicit domain boundaries.
-- REST v1 contract is defined and ready for backend endpoint development.
+Hauptfunktionen:
+- Raumübersicht mit Filterung und Details
+- Erstellen, Bestätigen und Stornieren von Buchungen
+- Rollenbasierter Zugriff (Student, Staff, Admin)
+- Realtime-Updates für Raum- und Buchungsänderungen
+- GraphQL-Abfragen für zusammengesetzte Datenansichten
+- Event- und Support-Seiten im Frontend
 
-## Architecture Decision
-We use a modular monolith architecture.
+## Architektur in Kurzform
+- Frontend: SPA im Ordner src
+- Backend: Express-Server im Ordner backend/src
+- Datenbank: PostgreSQL mit Prisma-Migrationen im Ordner backend/prisma
+- Messaging: RabbitMQ-basierte Event-Verarbeitung im Ordner backend/src/messaging und backend/src/notifications
 
-Why:
-- Fast delivery for a small team.
-- Clear domain ownership without early microservice complexity.
-- Easy migration path to microservices if scale requires it.
+## Verwendete Technologien und Einsatzorte
 
-Architecture document:
-- docs/architecture/monolith-rest.md
+### TypeScript
+- Durchgehend in Frontend und Backend verwendet.
+- Frontend-Beispiele: src/App.tsx, src/pages, src/components
+- Backend-Beispiele: backend/src/server.ts, backend/src/routes, backend/src/services
 
-## Domain Boundaries (v1)
-- Users: identity profile and role context.
-- Rooms: room metadata, location, equipment, lifecycle status.
-- Bookings: reservation lifecycle and conflict validation.
-- Availability: computed free/occupied windows and search views.
-- Notifications: user-facing messages triggered by booking events.
+### React
+- Basis des Frontends als Single Page Application.
+- Verwendet für Routing, Seiten, Komponenten und State-Handling.
+- Einsatzorte: src/App.tsx, src/pages, src/components
 
-REST contract:
-- docs/api/openapi.v1.yaml
-- docs/api/resource-model-v1.md
+### Vite
+- Build-Tool und Dev-Server für das Frontend.
+- Einsatzort: vite.config.ts und npm-Skript dev im Root package.json
 
-## REST Client Scaffolding (Frontend)
-Typed API contracts and services are created under:
-- src/api/contracts.ts
-- src/api/endpoints.ts
-- src/api/http.ts
-- src/api/services/
-- src/api/index.ts
+### Tailwind CSS
+- Styling-System für UI-Komponenten und Seitenlayout.
+- Einsatzorte: src/index.css sowie Klassen direkt in TSX-Komponenten
 
-This gives the SPA a stable integration layer while backend endpoints are implemented.
+### React Router
+- Clientseitiges Routing innerhalb der SPA.
+- Einsatzort: src/App.tsx und Link/Navigate-Nutzung in Seiten und Layout-Komponenten
 
-## Run the Frontend
-1. Install dependencies:
+### Node.js + Express
+- HTTP-API und zentrale Backend-Laufzeit.
+- Einsatzorte: backend/src/app.ts, backend/src/server.ts, backend/src/routes
 
-```bash
-npm install
-```
+### Prisma ORM
+- Datenzugriff, Schema-Verwaltung und Migrationen.
+- Einsatzorte: backend/prisma/schema.prisma, backend/prisma/migrations, backend/src/db/client.ts
 
-2. Start dev server:
+### PostgreSQL
+- Persistente relationale Datenbank für Räume, Nutzer, Buchungen und Benachrichtigungen.
+- Infrastruktur: backend/docker-compose.yml
+- Verbindung über DATABASE_URL in backend/.env
 
-```bash
-npm run dev
-```
+### REST API
+- Standardisierte Endpunkte unter /api/v1 für Auth, Räume, Buchungen, Verfügbarkeit und Benachrichtigungen.
+- Einsatzorte: backend/src/routes und backend/src/services
 
-3. Build production bundle:
+### GraphQL
+- Zusätzliche flexible Abfrageschicht für kombinierte Datenansichten.
+- Einsatzort: backend/src/graphql/gateway.ts
+- Endpoint: /graphql
 
-```bash
-npm run build
-```
+### WebSocket
+- Echtzeit-Kommunikation für Live-Events im Frontend.
+- Einsatzorte: backend/src/realtime/ws-server.ts und frontendseitige Realtime-Integration in src/realtime
 
-## Next Backend Steps
-1. Implement Users, Rooms, Bookings, Availability, Notifications modules in one backend app.
-2. Follow the OpenAPI contract for controllers and DTO validation.
-3. Add booking conflict checks and idempotency for create booking.
-4. Emit booking events and persist notifications.
+### RabbitMQ Messaging
+- Event-Driven-Kommunikation für entkoppelte Nebenprozesse (z. B. Notifications).
+- Einsatzorte: backend/src/messaging, backend/src/notifications, backend/src/workers/notifications-consumer.ts
+- Infrastruktur: backend/docker-compose.yml
 
-## Project Objective
-Deliver a reliable room booking platform with a strong monolith foundation, then evolve into GraphQL gateway and realtime messaging when core REST flows are stable.
+### JWT + Auth/RBAC
+- Authentifizierung per Token und Autorisierung per Rollen.
+- Einsatzorte: backend/src/auth, backend/src/middleware/auth.ts, geschützte Frontend-Routen in src/App.tsx
+
+### Zod
+- Laufzeitvalidierung von Requests und Konfiguration.
+- Einsatzorte: backend/src/config/env.ts, backend/src/services und Routen-Validierungen
+
+### Vitest
+- Integrationstests für Backend-Flows.
+- Einsatzorte: backend/tests/integration, backend/vitest.config.ts
+
+### Docker Compose
+- Lokale Infrastruktur für PostgreSQL und RabbitMQ.
+- Einsatzort: backend/docker-compose.yml
+
+## Start der Anwendung
+
+### Frontend
+1. Im Projektroot Abhängigkeiten installieren: npm install
+2. Dev-Server starten: npm run dev
+
+### Backend
+1. In backend wechseln und Abhängigkeiten installieren: npm install
+2. Infrastruktur starten: docker compose up -d
+3. Prisma-Client generieren: npm run prisma:generate
+4. Migrationen anwenden: npm run prisma:deploy
+5. Backend starten: npm run dev
+
+Optional für Messaging-Consumer:
+- npm run notifications:consumer

@@ -52,7 +52,7 @@ export async function getAvailabilityWindow(query: z.infer<typeof availabilityQu
   const appointments = await prisma.appointment.findMany({
     where: {
       roomId: room.id,
-      status: AppointmentStatus.CONFIRMED,
+      status: { not: AppointmentStatus.CANCELLED },
       startsAt: { lt: query.to },
       endsAt: { gt: query.from },
     },

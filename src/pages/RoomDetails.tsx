@@ -7,6 +7,7 @@ import MobileBottomNav from '../components/layout/MobileBottomNav'
 import { Wifi, Wind, Zap, Monitor, Volume2, CheckCircle2, ChevronLeft, type LucideIcon } from 'lucide-react'
 import { endpoints } from '../api/endpoints'
 import { ApiError, getAccessTokenClaims, getJson, patchJson } from '../api/http'
+import { getRoomAvailability } from '../api/services/availabilityService'
 import { createBooking } from '../api/services/bookingsService'
 
 type SlotState = 'free' | 'occupied' | 'maintenance'
@@ -59,7 +60,7 @@ const roomData: RoomView = {
 }
 
 const timeSlots = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00']
-const dayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI'] as const
+const dayLabels = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const
 
 function startOfDay(date: Date) {
   const value = new Date(date)
@@ -82,6 +83,11 @@ function atTime(baseDate: Date, hhmm: string) {
 
 function hasOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date) {
   return aStart < bEnd && bStart < aEnd
+}
+
+function toUtcIsoFromLocal(date: string, time: string) {
+  const local = new Date(`${date}T${time}:00`)
+  return local.toISOString()
 }
 
 function resolveBackendBaseUrl() {
@@ -238,8 +244,8 @@ export default function RoomDetails() {
     }
   }, [routeRoomId])
 
-  const reservationStartsAt = useMemo(() => `${date}T${from}:00`, [date, from])
-  const reservationEndsAt = useMemo(() => `${date}T${to}:00`, [date, to])
+  const reservationStartsAt = useMemo(() => toUtcIsoFromLocal(date, from), [date, from])
+  const reservationEndsAt = useMemo(() => toUtcIsoFromLocal(date, to), [date, to])
 
   useEffect(() => {
     let cancelled = false
@@ -379,8 +385,24 @@ export default function RoomDetails() {
       return
     }
 
+    if (new Date(reservationEndsAt) <= new Date(reservationStartsAt)) {
+      setSubmitError('End time must be later than start time.')
+      return
+    }
+
     setSubmitting(true)
     try {
+      const latestAvailability = await getRoomAvailability(routeRoomId, reservationStartsAt, reservationEndsAt)
+      const blockedByLatestState = latestAvailability.slots.some(
+        (slot) => slot.state === 'occupied' || slot.state === 'maintenance',
+      )
+
+      if (blockedByLatestState) {
+        setSubmitError('Selected time is no longer available. Please choose another slot.')
+        setTimelineReloadKey((value) => value + 1)
+        return
+      }
+
       await createBooking(
         {
           roomId: routeRoomId,
@@ -395,6 +417,9 @@ export default function RoomDetails() {
     } catch (error) {
       if (error instanceof ApiError && error.status === 403) {
         setSubmitError('You can submit requests, but only staff or admin can confirm reservations.')
+      } else if (error instanceof ApiError && error.status === 409) {
+        setSubmitError('This time slot has already been booked. Please select another time.')
+        setTimelineReloadKey((value) => value + 1)
       } else {
         setSubmitError(error instanceof Error ? error.message : 'Failed to submit reservation.')
       }

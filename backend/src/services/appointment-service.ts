@@ -3,8 +3,8 @@ import { z } from 'zod'
 import type { AuthenticatedUser } from '../auth/types.js'
 import { prisma } from '../db/client.js'
 import { badRequest, conflict, forbidden, notFound } from '../lib/api-error.js'
+import { publishAppointmentCreated, publishAppointmentUpdated } from '../messaging/publisher.js'
 import { publishRealtimeEvent } from '../realtime/event-bus.js'
-import { createNotification } from './notifications-service.js'
 import { ensureUserFromAuth } from './users-service.js'
 
 export const appointmentStatusSchema = z.nativeEnum(AppointmentStatus)
@@ -181,11 +181,15 @@ export async function createAppointment(input: z.infer<typeof createAppointmentS
     },
   })
 
-  await createNotification({
-    userId: created.ownerUserId,
-    type: 'system',
-    title: 'Reservation request received',
-    message: `Your request for ${created.room.name} is pending review (${created.status}).`,
+  await publishAppointmentCreated({
+    appointmentId: created.id,
+    ownerUserId: created.ownerUserId,
+    roomId: created.roomId,
+    roomName: created.room.name,
+    title: created.title,
+    status: created.status,
+    startsAt: created.startsAt,
+    endsAt: created.endsAt,
   })
 
   return created
@@ -228,14 +232,17 @@ export async function updateAppointment(appointmentId: string, input: z.infer<ty
     data: buildAppointmentUpdatedEventPayload(updated),
   })
 
-  if (existing.status !== updated.status) {
-    await createNotification({
-      userId: updated.ownerUserId,
-      type: updated.status === AppointmentStatus.CONFIRMED ? 'booking_confirmed' : updated.status === AppointmentStatus.CANCELLED ? 'booking_cancelled' : 'system',
-      title: 'Reservation status changed',
-      message: `${updated.title} is now ${updated.status}.`,
-    })
-  }
+  await publishAppointmentUpdated({
+    appointmentId: updated.id,
+    ownerUserId: updated.ownerUserId,
+    roomId: updated.roomId,
+    roomName: updated.room.name,
+    title: updated.title,
+    status: updated.status,
+    startsAt: updated.startsAt,
+    endsAt: updated.endsAt,
+    previousStatus: existing.status,
+  })
 
   return updated
 }
@@ -284,11 +291,16 @@ export async function confirmAppointment(appointmentId: string, actor: Authentic
     data: buildAppointmentUpdatedEventPayload(updated),
   })
 
-  await createNotification({
-    userId: updated.ownerUserId,
-    type: 'booking_confirmed',
-    title: 'Reservation confirmed',
-    message: `${updated.title} has been confirmed for ${updated.room.name}.`,
+  await publishAppointmentUpdated({
+    appointmentId: updated.id,
+    ownerUserId: updated.ownerUserId,
+    roomId: updated.roomId,
+    roomName: updated.room.name,
+    title: updated.title,
+    status: updated.status,
+    startsAt: updated.startsAt,
+    endsAt: updated.endsAt,
+    previousStatus: existing.status,
   })
 
   return updated
@@ -318,11 +330,16 @@ export async function cancelAppointment(appointmentId: string, actor: Authentica
     data: buildAppointmentUpdatedEventPayload(updated),
   })
 
-  await createNotification({
-    userId: updated.ownerUserId,
-    type: 'booking_cancelled',
-    title: 'Reservation cancelled',
-    message: `${updated.title} has been cancelled.`,
+  await publishAppointmentUpdated({
+    appointmentId: updated.id,
+    ownerUserId: updated.ownerUserId,
+    roomId: updated.roomId,
+    roomName: updated.room.name,
+    title: updated.title,
+    status: updated.status,
+    startsAt: updated.startsAt,
+    endsAt: updated.endsAt,
+    previousStatus: existing.status,
   })
 
   return updated

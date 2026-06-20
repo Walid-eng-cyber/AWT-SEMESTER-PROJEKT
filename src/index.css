@@ -83,3 +83,22 @@ body {
   width: 100%;
   min-height: 100svh;
 }
+
+.hero-background {
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: 62% center;
+  min-height: clamp(560px, 92svh, 860px);
+}
+
+@media (min-width: 640px) {
+  .hero-background {
+    background-position: 58% center;
+  }
+}
+
+@media (min-width: 1024px) {
+  .hero-background {
+    background-position: center;
+  }
+}
